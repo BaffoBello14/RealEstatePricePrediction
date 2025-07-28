@@ -1,0 +1,128 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Virtual environments
+.env/
+.venv/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# VSCode settings
+.vscode/
+
+# PyCharm settings
+.idea/
+
+# Python egg metadata
+*.egg-info/
+*.egg
+
+# Distribution / packaging
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+
+# MyPy and other type-checking / linting tools
+.mypy_cache/
+.dmypy.json
+.pyre/
+.pytype/
+ruff_cache/
+
+# Profiling data
+*.prof
+
+# Logs
+*.log
+
+# Data files (if you generate them locally)
+data/raw/
+data/processed/
+*.csv
+*.tsv
+*.parquet
+*.h5
+*.zip
+
+# Model artifacts
+models/
+checkpoints/
+*.pkl
+*.joblib
+*.h5
+*.onnx
+*.pt
+*.pb
+*.tflite
+
+# Temporary or debug files
+*.tmp
+*.bak
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# dotenv environment variable files
+.env
+.env.*
+
+# Local database or SQLite files
+*.sqlite3
+*.db
+
+# Jupyter Notebook hidden output
+*.nbconvert.ipynb
+
+# MLFlow or TensorBoard logs
+mlruns/
+logs/
+runs/
+
+# DVC
+.dvc/
+*.dvc
+.dvcignore
+
+# IPython history
+.history
+
+# Optional: Colab artifacts
+*.ipynb-jupyter.json

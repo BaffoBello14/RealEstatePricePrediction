@@ -1,0 +1,83 @@
+# Configurazione globale del progetto ML
+
+# Database
+database:
+  schema_path: "data/db_schema.json"
+  selected_aliases: ["A", "AI", "PC", "ISC", "II", "PCOZ", "OZ", "OV"]
+
+# Paths
+paths:
+  data_raw: "data/raw/"
+  data_processed: "data/processed/"
+  data_interim: "data/interim/"
+  models: "models/"
+  logs: "logs/"
+
+# Target e colonne
+target:
+  column: "AI_Prezzo_Ridistribuito"
+
+# Preprocessing parametri
+preprocessing:
+  # Soglie correlazione
+  cramer_threshold: 0.95
+  corr_threshold: 0.95
+  
+  # Encoding
+  low_cardinality_threshold: 10
+  high_cardinality_max: 100
+  
+  # Outliers
+  z_threshold: 3
+  iqr_multiplier: 1.5
+  isolation_contamination: 0.1
+  min_methods_outlier: 2
+  
+  # PCA
+  pca_variance_threshold: 0.95
+  
+  # Split
+  test_size: 0.2
+  random_state: 42
+
+# Modelli da addestrare
+models:
+  linear_regression:
+    enabled: true
+    params: {}
+  
+  random_forest:
+    enabled: true
+    params:
+      n_estimators: 100
+      random_state: 42
+  
+  xgboost:
+    enabled: true
+    params:
+      n_estimators: 100
+      random_state: 42
+      learning_rate: 0.1
+
+# Ottimizzazione iperparametri
+tuning:
+  enabled: true
+  n_trials: 100
+  timeout: 3600  # 1 ora
+  
+# Logging
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/ml_pipeline.log"
+
+# Esecuzione pipeline
+execution:
+  steps:
+    - retrieve_data
+    - build_dataset
+    - preprocessing
+    - training
+    - evaluation
+  
+  force_reload: false  # Se True, rigenera tutto da capo

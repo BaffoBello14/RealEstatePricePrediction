@@ -1,0 +1,169 @@
+import pandas as pd
+import numpy as np
+from scipy.stats import chi2_contingency
+from typing import Tuple, List
+from ..utils.logger import get_logger
+
+logger = get_logger(__name__)
+
+def cramers_v(x: pd.Series, y: pd.Series) -> float:
+    """
+    Calcola Cramér's V tra due variabili categoriche.
+    
+    Args:
+        x: Prima variabile categorica
+        y: Seconda variabile categorica
+        
+    Returns:
+        Valore di Cramér's V (0-1)
+    """
+    confusion_matrix = pd.crosstab(x, y)
+    if confusion_matrix.empty or confusion_matrix.shape[0] < 2 or confusion_matrix.shape[1] < 2:
+        return np.nan
+
+    chi2, _, _, _ = chi2_contingency(confusion_matrix, correction=False)
+    n = confusion_matrix.values.sum()
+    if n == 0:
+        return np.nan
+
+    phi2 = chi2 / n
+    r, k = confusion_matrix.shape
+    phi2corr = max(0, phi2 - ((k-1)*(r-1)) / (n-1))
+    rcorr = r - ((r-1)**2)/(n-1)
+    kcorr = k - ((k-1)**2)/(n-1)
+    denom = min((kcorr-1), (rcorr-1))
+    return np.sqrt(phi2corr / denom) if denom > 0 else np.nan
+
+def remove_highly_correlated_categorical(df: pd.DataFrame, threshold: float = 0.95) -> Tuple[pd.DataFrame, List[str]]:
+    """
+    Rimuove variabili categoriche altamente correlate usando Cramér's V.
+    
+    Args:
+        df: DataFrame con le variabili
+        threshold: Soglia di correlazione
+        
+    Returns:
+        Tuple con DataFrame filtrato e lista colonne rimosse
+    """
+    logger.info(f"Rimozione variabili categoriche correlate (soglia: {threshold})...")
+    
+    # Seleziona categoriche "vere"
+    cat_cols = df.select_dtypes(include='object').columns
+    cat_cols = [col for col in cat_cols if df[col].nunique() > 1]
+    
+    if len(cat_cols) < 2:
+        logger.info("Meno di 2 variabili categoriche, skip correlazione")
+        return df, []
+    
+    logger.info(f"Analisi correlazione su {len(cat_cols)} variabili categoriche")
+    
+    # Calcola matrice Cramér's V
+    cramer_matrix = pd.DataFrame(index=cat_cols, columns=cat_cols, dtype=float)
+    
+    for col1 in cat_cols:
+        for col2 in cat_cols:
+            if col1 == col2:
+                cramer_matrix.loc[col1, col2] = 1.0
+            elif pd.isna(cramer_matrix.loc[col1, col2]):
+                value = cramers_v(df[col1], df[col2])
+                cramer_matrix.loc[col1, col2] = value
+                cramer_matrix.loc[col2, col1] = value
+    
+    # Rimuovi categoriche con Cramér's V > soglia
+    to_remove = set()
+    for col in cramer_matrix.columns:
+        high_corr = cramer_matrix[col][
+            (cramer_matrix[col] > threshold) & (cramer_matrix[col] < 1.0)
+        ].index
+        for other in high_corr:
+            if other not in to_remove:
+                to_remove.add(other)
+    
+    removed_cols = list(to_remove)
+    if removed_cols:
+        df = df.drop(columns=removed_cols)
+        logger.info(f"Rimosse {len(removed_cols)} variabili categoriche correlate: {removed_cols}")
+    else:
+        logger.info("Nessuna variabile categorica da rimuovere per correlazione")
+    
+    return df, removed_cols
+
+def remove_highly_correlated_numeric(
+    X_train: pd.DataFrame, 
+    X_test: pd.DataFrame, 
+    threshold: float = 0.95
+) -> Tuple[pd.DataFrame, pd.DataFrame, List[str]]:
+    """
+    Rimuove feature numeriche altamente correlate (solo su train).
+    
+    Args:
+        X_train: Feature di training
+        X_test: Feature di test
+        threshold: Soglia di correlazione
+        
+    Returns:
+        Tuple con X_train, X_test filtrati e lista colonne rimosse
+    """
+    logger.info(f"Rimozione feature numeriche correlate (soglia: {threshold})...")
+    
+    # Calcola correlazione solo su train
+    numeric_cols = X_train.select_dtypes(include=np.number).columns
+    if len(numeric_cols) < 2:
+        logger.info("Meno di 2 variabili numeriche, skip correlazione")
+        return X_train, X_test, []
+    
+    corr = X_train[numeric_cols].corr().abs()
+    upper = corr.where(np.triu(np.ones(corr.shape), k=1).astype(bool))
+    to_drop = [col for col in upper.columns if any(upper[col] > threshold)]
+    
+    if to_drop:
+        logger.info(f"Rimosse {len(to_drop)} feature numeriche correlate: {to_drop}")
+        X_train = X_train.drop(columns=to_drop)
+        X_test = X_test.drop(columns=to_drop)
+    else:
+        logger.info("Nessuna feature numerica da rimuovere per correlazione")
+    
+    return X_train, X_test, to_drop
+
+def filter_features(
+    df: pd.DataFrame,
+    X_train: pd.DataFrame = None,
+    X_test: pd.DataFrame = None,
+    cramer_threshold: float = 0.95,
+    corr_threshold: float = 0.95
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict]:
+    """
+    Applica tutti i filtri alle feature.
+    
+    Args:
+        df: DataFrame completo (per correlazioni categoriche)
+        X_train: Feature di training (per correlazioni numeriche)
+        X_test: Feature di test (per correlazioni numeriche)
+        cramer_threshold: Soglia per Cramér's V
+        corr_threshold: Soglia per correlazione numerica
+        
+    Returns:
+        Tuple con df filtrato, X_train filtrato, X_test filtrato, info filtri
+    """
+    logger.info("Avvio filtri delle feature...")
+    
+    filter_info = {}
+    
+    # Filtro correlazioni categoriche (su df completo)
+    df_filtered, removed_categorical = remove_highly_correlated_categorical(df, cramer_threshold)
+    filter_info['removed_categorical'] = removed_categorical
+    
+    # Filtro correlazioni numeriche (su train/test se forniti)
+    if X_train is not None and X_test is not None:
+        X_train_filtered, X_test_filtered, removed_numeric = remove_highly_correlated_numeric(
+            X_train, X_test, corr_threshold
+        )
+        filter_info['removed_numeric'] = removed_numeric
+        
+        logger.info(f"Filtri completati. Shape: df {df_filtered.shape}, "
+                   f"X_train {X_train_filtered.shape}, X_test {X_test_filtered.shape}")
+        
+        return df_filtered, X_train_filtered, X_test_filtered, filter_info
+    else:
+        logger.info(f"Filtri completati. Shape df: {df_filtered.shape}")
+        return df_filtered, None, None, filter_info
