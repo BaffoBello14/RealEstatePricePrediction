@@ -11,7 +11,8 @@ from optuna.pruners import MedianPruner
 from ..utils.logger import get_logger
 from .models import (
     objective_random_forest, objective_gradient_boosting, objective_xgboost,
-    objective_catboost, objective_lightgbm, objective_hist_gradient_boosting
+    objective_catboost, objective_lightgbm, objective_hist_gradient_boosting,
+    objective_tabm
 )
 
 logger = get_logger(__name__)
@@ -126,7 +127,8 @@ def run_full_optimization(X_train, y_train, config: Dict[str, Any]) -> Dict[str,
         (objective_xgboost, "XGBoost"),
         (objective_catboost, "CatBoost"),
         (objective_lightgbm, "LightGBM"),
-        (objective_hist_gradient_boosting, "HistGradientBoosting")
+        (objective_hist_gradient_boosting, "HistGradientBoosting"),
+        (objective_tabm, "TabM")
     ]
     
     total_start_time = datetime.now()

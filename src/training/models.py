@@ -14,6 +14,7 @@ import xgboost as xgb
 import catboost as cb
 import lightgbm as lgb
 import optuna
+from tabm import TabM
 from ..utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -166,6 +167,29 @@ def objective_hist_gradient_boosting(trial, X_train, y_train, cv_folds=5, random
     
     return -scores.mean()
 
+def objective_tabm(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1):
+    """Funzione obiettivo per TabM"""
+    params = {
+        'n_estimators': trial.suggest_int('n_estimators', 100, 1000, step=50),
+        'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, log=True),
+        'max_depth': trial.suggest_int('max_depth', 3, 10),
+        'min_child_weight': trial.suggest_int('min_child_weight', 1, 10),
+        'gamma': trial.suggest_float('gamma', 0, 0.5),
+        'subsample': trial.suggest_float('subsample', 0.6, 1.0),
+        'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
+        'reg_alpha': trial.suggest_float('reg_alpha', 0, 10),
+        'reg_lambda': trial.suggest_float('reg_lambda', 0, 10),
+        'random_state': random_state,
+        'n_jobs': n_jobs,
+        'verbosity': 0
+    }
+    
+    model = TabM(**params)
+    kfold = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
+    scores = cross_val_score(model, X_train, y_train, cv=kfold, scoring='neg_root_mean_squared_error', n_jobs=n_jobs)
+    
+    return -scores.mean()
+
 def create_model_from_params(model_name: str, params: Dict[str, Any]) -> Any:
     """
     Crea un modello dalle migliori params di Optuna.
@@ -189,6 +213,8 @@ def create_model_from_params(model_name: str, params: Dict[str, Any]) -> Any:
         return lgb.LGBMRegressor(**params)
     elif model_name == "HistGradientBoosting":
         return HistGradientBoostingRegressor(**params)
+    elif model_name == "TabM":
+        return TabM(**params)
     else:
         raise ValueError(f"Modello non supportato: {model_name}")
 
