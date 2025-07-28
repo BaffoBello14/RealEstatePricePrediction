@@ -15,6 +15,8 @@ from src.utils.io import load_config, check_file_exists, ensure_dir
 from src.db.retrieve import retrieve_data
 from src.dataset.build_dataset import build_dataset
 from src.preprocessing.pipeline import run_preprocessing_pipeline
+from src.training.train import run_training_pipeline
+from src.training.evaluation import run_evaluation_pipeline
 
 def setup_directories(config: Dict[str, Any]) -> None:
     """
@@ -108,9 +110,13 @@ def run_preprocessing(config: Dict[str, Any], dataset_path: str) -> Dict[str, st
     # Path di output
     output_paths = {
         'train_features': f"{paths.get('data_processed', 'data/processed/')}X_train.parquet",
+        'val_features': f"{paths.get('data_processed', 'data/processed/')}X_val.parquet",
         'test_features': f"{paths.get('data_processed', 'data/processed/')}X_test.parquet", 
         'train_target': f"{paths.get('data_processed', 'data/processed/')}y_train.parquet",
+        'val_target': f"{paths.get('data_processed', 'data/processed/')}y_val.parquet",
         'test_target': f"{paths.get('data_processed', 'data/processed/')}y_test.parquet",
+        'val_target_orig': f"{paths.get('data_processed', 'data/processed/')}y_val_orig.parquet",
+        'test_target_orig': f"{paths.get('data_processed', 'data/processed/')}y_test_orig.parquet",
         'preprocessing_info': f"{paths.get('data_processed', 'data/processed/')}preprocessing_info.json"
     }
     
@@ -130,32 +136,59 @@ def run_preprocessing(config: Dict[str, Any], dataset_path: str) -> Dict[str, st
     
     return output_paths
 
-def run_training(config: Dict[str, Any], preprocessing_paths: Dict[str, str]) -> None:
+def run_training(config: Dict[str, Any], preprocessing_paths: Dict[str, str]) -> Dict[str, Any]:
     """
     Esegue il training dei modelli.
     
     Args:
         config: Configurazione del progetto
         preprocessing_paths: Path dei file preprocessati
+        
+    Returns:
+        Dictionary con risultati del training
     """
     logger = get_logger(__name__)
     logger.info("=== FASE 4: TRAINING ===")
     
-    # TODO: Implementare training
-    logger.info("Training non ancora implementato")
+    training_config = config.get('training', {})
+    
+    # Esegue training pipeline
+    training_results = run_training_pipeline(preprocessing_paths, training_config)
+    
+    logger.info("Training completato con successo")
+    return training_results
 
-def run_evaluation(config: Dict[str, Any]) -> None:
+def run_evaluation(config: Dict[str, Any], training_results: Dict[str, Any], preprocessing_paths: Dict[str, str]) -> Dict[str, Any]:
     """
     Esegue la valutazione dei modelli.
     
     Args:
         config: Configurazione del progetto
+        training_results: Risultati del training
+        preprocessing_paths: Path ai file preprocessati
+        
+    Returns:
+        Dictionary con risultati dell'evaluation
     """
     logger = get_logger(__name__)
     logger.info("=== FASE 5: EVALUATION ===")
     
-    # TODO: Implementare evaluation
-    logger.info("Evaluation non ancora implementato")
+    paths = config.get('paths', {})
+    
+    # Path di output per evaluation
+    output_paths = {
+        'results_dir': paths.get('logs', 'logs/'),
+        'feature_importance_path': f"{paths.get('data_processed', 'data/processed/')}feature_importance.csv",
+        'evaluation_summary_path': f"{paths.get('data_processed', 'data/processed/')}evaluation_summary.json"
+    }
+    
+    # Esegue evaluation pipeline
+    evaluation_results = run_evaluation_pipeline(
+        training_results, preprocessing_paths, config, output_paths
+    )
+    
+    logger.info("Evaluation completata con successo")
+    return evaluation_results
 
 def main():
     """Funzione principale della pipeline."""
@@ -196,6 +229,7 @@ def main():
         raw_data_path = None
         dataset_path = None
         preprocessing_paths = None
+        training_results = None
         
         # Esecuzione step
         if 'retrieve_data' in steps_to_run:
@@ -218,14 +252,21 @@ def main():
                 paths = config.get('paths', {})
                 preprocessing_paths = {
                     'train_features': f"{paths.get('data_processed', 'data/processed/')}X_train.parquet",
+                    'val_features': f"{paths.get('data_processed', 'data/processed/')}X_val.parquet",
                     'test_features': f"{paths.get('data_processed', 'data/processed/')}X_test.parquet",
                     'train_target': f"{paths.get('data_processed', 'data/processed/')}y_train.parquet",
-                    'test_target': f"{paths.get('data_processed', 'data/processed/')}y_test.parquet"
+                    'val_target': f"{paths.get('data_processed', 'data/processed/')}y_val.parquet",
+                    'test_target': f"{paths.get('data_processed', 'data/processed/')}y_test.parquet",
+                    'val_target_orig': f"{paths.get('data_processed', 'data/processed/')}y_val_orig.parquet",
+                    'test_target_orig': f"{paths.get('data_processed', 'data/processed/')}y_test_orig.parquet"
                 }
-            run_training(config, preprocessing_paths)
+            training_results = run_training(config, preprocessing_paths)
         
         if 'evaluation' in steps_to_run:
-            run_evaluation(config)
+            if training_results is None:
+                logger.error("Training results non disponibili per evaluation. Eseguire prima il training.")
+            else:
+                run_evaluation(config, training_results, preprocessing_paths)
         
         logger.info("=== PIPELINE COMPLETATA CON SUCCESSO ===")
         

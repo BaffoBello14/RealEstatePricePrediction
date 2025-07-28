@@ -38,19 +38,51 @@ preprocessing:
   
   # Split
   test_size: 0.2
+  val_size: 0.18
+  random_state: 42
+
+# Training parametri
+training:
+  # Cross-validation
+  cv_folds: 5
+  cv_scoring: 'neg_root_mean_squared_error'
+  
+  # Optuna optimization
+  n_trials: 100
+  optuna_timeout: 7200  # 2 ore in secondi
+  optuna_pruning_percentile: 25
+  
+  # Parallelization
+  n_jobs: -1
+  
+  # Random state
   random_state: 42
 
 # Modelli da addestrare
 models:
-  linear_regression:
-    enabled: true
-    params: {}
+  # Baseline models (sempre abilitati)
+  baseline:
+    linear_regression: true
+    ridge: true
+    lasso: true
+    elastic_net: true
+    decision_tree: true
+    knn: true
+    svr: true
   
-  random_forest:
-    enabled: true
-    params:
-      n_estimators: 100
-      random_state: 42
+  # Advanced models (con ottimizzazione Optuna)
+  advanced:
+    random_forest: true
+    gradient_boosting: true
+    xgboost: true
+    catboost: true
+    lightgbm: true
+    hist_gradient_boosting: true
+  
+     # Ensemble models
+   ensemble:
+     voting_regressor: true
+     stacking_regressor: true
   
   xgboost:
     enabled: true

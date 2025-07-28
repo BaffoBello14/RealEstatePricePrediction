@@ -9,6 +9,62 @@ from ..utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+def split_dataset_with_validation(
+    df: pd.DataFrame, 
+    target_column: str, 
+    test_size: float = 0.2,
+    val_size: float = 0.18,
+    random_state: int = 42
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.Series, pd.Series, pd.Series, pd.Series, pd.Series]:
+    """
+    Divide il dataset in train, validation e test.
+    
+    Args:
+        df: DataFrame completo
+        target_column: Nome della colonna target
+        test_size: Proporzione del test set
+        val_size: Proporzione del validation set (rispetto al train+val)
+        random_state: Seed per riproducibilità
+        
+    Returns:
+        Tuple con X_train, X_val, X_test, y_train, y_val, y_test, y_train_orig, y_val_orig, y_test_orig
+    """
+    logger.info(f"Divisione dataset (test_size={test_size}, val_size={val_size})...")
+    
+    # Separa features e target
+    X = df.drop(columns=[target_column])
+    y = df[target_column]
+    
+    # Recupera target originale se disponibile
+    target_orig_column = target_column.replace('_log', '_original')
+    if target_orig_column in df.columns:
+        y_orig = df[target_orig_column]
+    else:
+        # Se non disponibile, calcola dalla scala log
+        y_orig = np.exp(y)
+    
+    # Prima divisione: train+val vs test
+    X_temp, X_test, y_temp, y_test, y_temp_orig, y_test_orig = train_test_split(
+        X, y, y_orig, test_size=test_size, random_state=random_state, stratify=None
+    )
+    
+    # Seconda divisione: train vs val
+    val_size_adjusted = val_size / (1 - test_size)  # Aggiusta la proporzione
+    X_train, X_val, y_train, y_val, y_train_orig, y_val_orig = train_test_split(
+        X_temp, y_temp, y_temp_orig, test_size=val_size_adjusted, random_state=random_state, stratify=None
+    )
+    
+    logger.info(f"Train set: {X_train.shape[0]} righe, {X_train.shape[1]} colonne")
+    logger.info(f"Validation set: {X_val.shape[0]} righe, {X_val.shape[1]} colonne") 
+    logger.info(f"Test set: {X_test.shape[0]} righe, {X_test.shape[1]} colonne")
+    
+    # Log delle statistiche sui target
+    logger.info(f"Target log - Train: μ={y_train.mean():.3f}, σ={y_train.std():.3f}")
+    logger.info(f"Target log - Val: μ={y_val.mean():.3f}, σ={y_val.std():.3f}")
+    logger.info(f"Target log - Test: μ={y_test.mean():.3f}, σ={y_test.std():.3f}")
+    
+    return X_train, X_val, X_test, y_train, y_val, y_test, y_train_orig, y_val_orig, y_test_orig
+
 def split_dataset(
     df: pd.DataFrame, 
     target_column: str, 
@@ -16,7 +72,7 @@ def split_dataset(
     random_state: int = 42
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
     """
-    Divide il dataset in train e test.
+    Divide il dataset in train e test (retrocompatibilità).
     
     Args:
         df: DataFrame completo
@@ -43,52 +99,75 @@ def split_dataset(
     
     return X_train, X_test, y_train, y_test
 
-def scale_features(X_train: pd.DataFrame, X_test: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray, StandardScaler]:
+def scale_features(X_train: pd.DataFrame, X_val: pd.DataFrame = None, X_test: pd.DataFrame = None) -> Tuple:
     """
     Scala le feature usando StandardScaler.
     
     Args:
         X_train: Feature di training
-        X_test: Feature di test
+        X_val: Feature di validation (opzionale)
+        X_test: Feature di test (opzionale)
         
     Returns:
-        Tuple con X_train_scaled, X_test_scaled, scaler
+        Tuple con X_train_scaled, X_val_scaled (se presente), X_test_scaled (se presente), scaler
     """
     logger.info("Scaling delle feature...")
     
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)
-    X_test_scaled = scaler.transform(X_test)  # Usa parametri del train
+    
+    results = [X_train_scaled]
+    
+    if X_val is not None:
+        X_val_scaled = scaler.transform(X_val)
+        results.append(X_val_scaled)
+    
+    if X_test is not None:
+        X_test_scaled = scaler.transform(X_test)  # Usa parametri del train
+        results.append(X_test_scaled)
+    
+    results.append(scaler)
     
     logger.info(f"Feature scalate: {X_train_scaled.shape[1]}")
     
-    return X_train_scaled, X_test_scaled, scaler
+    return tuple(results)
 
 def apply_pca(
     X_train_scaled: np.ndarray, 
-    X_test_scaled: np.ndarray, 
-    X_train_columns: pd.Index,
+    X_val_scaled: np.ndarray = None,
+    X_test_scaled: np.ndarray = None, 
+    X_train_columns: pd.Index = None,
     variance_threshold: float = 0.95,
     random_state: int = 42
-) -> Tuple[np.ndarray, np.ndarray, PCA, pd.DataFrame]:
+) -> Tuple:
     """
     Applica PCA mantenendo la varianza specificata.
     
     Args:
         X_train_scaled: Feature di training scalate
-        X_test_scaled: Feature di test scalate
+        X_val_scaled: Feature di validation scalate (opzionale)
+        X_test_scaled: Feature di test scalate (opzionale)
         X_train_columns: Nomi delle colonne originali
         variance_threshold: Soglia di varianza da mantenere
         random_state: Seed per riproducibilità
         
     Returns:
-        Tuple con X_train_pca, X_test_pca, pca_model, loadings_df
+        Tuple con X_train_pca, X_val_pca (se presente), X_test_pca (se presente), pca_model, loadings_df
     """
     logger.info(f"Applicazione PCA (varianza target: {variance_threshold})...")
     
     pca = PCA(n_components=variance_threshold, random_state=random_state)
     X_train_pca = pca.fit_transform(X_train_scaled)
-    X_test_pca = pca.transform(X_test_scaled)  # Usa parametri del train
+    
+    results = [X_train_pca]
+    
+    if X_val_scaled is not None:
+        X_val_pca = pca.transform(X_val_scaled)
+        results.append(X_val_pca)
+    
+    if X_test_scaled is not None:
+        X_test_pca = pca.transform(X_test_scaled)  # Usa parametri del train
+        results.append(X_test_pca)
     
     explained_var = pca.explained_variance_ratio_
     
@@ -108,6 +187,8 @@ def apply_pca(
         index=[f'PC{i+1}' for i in range(pca.n_components_)]
     )
     
+    results.extend([pca, loadings])
+    
     # Top feature per ogni componente
     logger.info("Top 5 feature per ogni componente principale:")
     for i in range(min(5, pca.n_components_)):  # Mostra solo le prime 5 componenti
@@ -118,7 +199,7 @@ def apply_pca(
     # Grafico varianza cumulativa
     _plot_pca_variance(explained_var, variance_threshold)
     
-    return X_train_pca, X_test_pca, pca, loadings
+    return tuple(results)
 
 def _plot_pca_variance(explained_var: np.ndarray, variance_threshold: float) -> None:
     """
@@ -142,31 +223,40 @@ def _plot_pca_variance(explained_var: np.ndarray, variance_threshold: float) -> 
 
 def apply_transformations(
     X_train: pd.DataFrame,
-    X_test: pd.DataFrame,
+    X_val: pd.DataFrame = None,
+    X_test: pd.DataFrame = None,
     pca_variance_threshold: float = 0.95,
     random_state: int = 42
-) -> Tuple[np.ndarray, np.ndarray, Dict[str, Any]]:
+) -> Tuple:
     """
     Applica tutte le trasformazioni (scaling + PCA).
     
     Args:
         X_train: Feature di training
-        X_test: Feature di test
+        X_val: Feature di validation (opzionale)
+        X_test: Feature di test (opzionale)
         pca_variance_threshold: Soglia varianza per PCA
         random_state: Seed per riproducibilità
         
     Returns:
-        Tuple con X_train_transformed, X_test_transformed, transformation_info
+        Tuple con X_train_transformed, X_val_transformed (se presente), X_test_transformed (se presente), transformation_info
     """
     logger.info("Applicazione trasformazioni complete...")
     
     # Scaling
-    X_train_scaled, X_test_scaled, scaler = scale_features(X_train, X_test)
+    scaling_results = scale_features(X_train, X_val, X_test)
+    scaler = scaling_results[-1]  # L'ultimo elemento è sempre il scaler
     
     # PCA
-    X_train_pca, X_test_pca, pca_model, loadings = apply_pca(
-        X_train_scaled, X_test_scaled, X_train.columns, pca_variance_threshold, random_state
+    pca_results = apply_pca(
+        *scaling_results[:-1],  # Passa tutti i set scalati eccetto il scaler
+        X_train_columns=X_train.columns, 
+        variance_threshold=pca_variance_threshold, 
+        random_state=random_state
     )
+    
+    pca_model = pca_results[-2]  # Penultimo elemento è il modello PCA
+    loadings = pca_results[-1]   # Ultimo elemento sono i loadings
     
     # Informazioni sulle trasformazioni
     transformation_info = {
@@ -174,14 +264,15 @@ def apply_transformations(
         'pca_model': pca_model,
         'loadings': loadings,
         'original_features': X_train.shape[1],
-        'pca_components': X_train_pca.shape[1],
+        'pca_components': pca_results[0].shape[1],  # Prima trasformazione (train)
         'variance_explained': pca_model.explained_variance_ratio_.sum()
     }
     
-    logger.info(f"Trasformazioni completate: {X_train.shape[1]} -> {X_train_pca.shape[1]} feature")
+    logger.info(f"Trasformazioni completate: {X_train.shape[1]} -> {pca_results[0].shape[1]} feature")
     logger.info(f"Varianza preservata: {transformation_info['variance_explained']:.3f}")
     
-    return X_train_pca, X_test_pca, transformation_info
+    # Restituisci i dati trasformati + info
+    return pca_results[:-2] + (transformation_info,)
 
 def inverse_transform_target(y_log: pd.Series) -> pd.Series:
     """

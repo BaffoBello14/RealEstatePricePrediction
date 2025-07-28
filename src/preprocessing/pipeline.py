@@ -12,7 +12,7 @@ from .cleaning import clean_data, transform_target_and_detect_outliers
 from .filtering import filter_features
 from .encoding import encode_features
 from .imputation import handle_missing_values
-from .transformation import split_dataset, apply_transformations
+from .transformation import split_dataset_with_validation, apply_transformations
 
 logger = get_logger(__name__)
 
@@ -64,28 +64,34 @@ def run_preprocessing_pipeline(
             cramer_threshold=config.get('cramer_threshold', 0.95)
         )
         
-        # 6. Train/Test Split
-        logger.info("Step 6: Train/Test Split...")
-        X_train, X_test, y_train, y_test = split_dataset(
+        # 6. Train/Validation/Test Split
+        logger.info("Step 6: Train/Validation/Test Split...")
+        X_train, X_val, X_test, y_train, y_val, y_test, y_train_orig, y_val_orig, y_test_orig = split_dataset_with_validation(
             df, 
             target_column,
             test_size=config.get('test_size', 0.2),
+            val_size=config.get('val_size', 0.18),
             random_state=config.get('random_state', 42)
         )
         
         # 7. Filtro correlazioni numeriche (post-split)
         logger.info("Step 7: Filtro correlazioni numeriche...")
-        X_train, X_test, filter_info_num = filter_features(
+        filter_results = filter_features(
             df,  # Non usato in questo caso
             X_train=X_train,
+            X_val=X_val,
             X_test=X_test,
             corr_threshold=config.get('corr_threshold', 0.95)
-        )[1:3] + (filter_info_cat,)  # Prendi solo X_train, X_test filtrati
+        )
+        
+        # Estrai i risultati (df, X_train, X_val, X_test, filter_info)
+        _, X_train, X_val, X_test, filter_info_num = filter_results
         
         # 8. Trasformazioni (scaling + PCA)
         logger.info("Step 8: Trasformazioni (scaling + PCA)...")
-        X_train_transformed, X_test_transformed, transformation_info = apply_transformations(
+        X_train_transformed, X_val_transformed, X_test_transformed, transformation_info = apply_transformations(
             X_train,
+            X_val, 
             X_test,
             pca_variance_threshold=config.get('pca_variance_threshold', 0.95),
             random_state=config.get('random_state', 42)
@@ -121,18 +127,31 @@ def run_preprocessing_pipeline(
             X_train_clean, 
             columns=[f'PC{i+1}' for i in range(X_train_clean.shape[1])]
         )
+        X_val_df = pd.DataFrame(
+            X_val_transformed,
+            columns=[f'PC{i+1}' for i in range(X_val_transformed.shape[1])]
+        )
         X_test_df = pd.DataFrame(
             X_test_transformed,
             columns=[f'PC{i+1}' for i in range(X_test_transformed.shape[1])]
         )
         y_train_df = pd.DataFrame({'target_log': y_train_clean})
-        y_test_df = pd.DataFrame({'target': y_test})
+        y_val_df = pd.DataFrame({'target_log': y_val})
+        y_test_df = pd.DataFrame({'target_log': y_test})
+        
+        # Target in scala originale per evaluation
+        y_val_orig_df = pd.DataFrame({'target_original': y_val_orig})
+        y_test_orig_df = pd.DataFrame({'target_original': y_test_orig})
         
         # Salva i file
         save_dataframe(X_train_df, output_paths['train_features'])
+        save_dataframe(X_val_df, output_paths['val_features'])
         save_dataframe(X_test_df, output_paths['test_features'])
         save_dataframe(y_train_df, output_paths['train_target'])
+        save_dataframe(y_val_df, output_paths['val_target'])
         save_dataframe(y_test_df, output_paths['test_target'])
+        save_dataframe(y_val_orig_df, output_paths['val_target_orig'])
+        save_dataframe(y_test_orig_df, output_paths['test_target_orig'])
         
         # 12. Salva informazioni preprocessing
         logger.info("Step 12: Salvataggio informazioni preprocessing...")
@@ -140,6 +159,7 @@ def run_preprocessing_pipeline(
         preprocessing_info = {
             'dataset_original_shape': list(df.shape),
             'train_shape': [X_train_clean.shape[0], X_train_clean.shape[1]],
+            'val_shape': list(X_val_transformed.shape),
             'test_shape': list(X_test_transformed.shape),
             'target_column': target_column,
             'outliers_removed': int(outliers_count),
@@ -162,7 +182,7 @@ def run_preprocessing_pipeline(
         save_json(preprocessing_info, output_paths['preprocessing_info'])
         
         logger.info("=== PREPROCESSING COMPLETATO CON SUCCESSO ===")
-        logger.info(f"Dataset finale: {X_train_clean.shape[0]} train + {X_test_transformed.shape[0]} test")
+        logger.info(f"Dataset finale: {X_train_clean.shape[0]} train + {X_val_transformed.shape[0]} val + {X_test_transformed.shape[0]} test")
         logger.info(f"Features finali: {X_train_clean.shape[1]} (PCA)")
         logger.info(f"Varianza preservata: {transformation_info['variance_explained']:.3f}")
         
