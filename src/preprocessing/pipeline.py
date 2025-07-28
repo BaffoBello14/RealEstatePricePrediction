@@ -93,6 +93,7 @@ def run_preprocessing_pipeline(
             X_train,
             X_val, 
             X_test,
+            use_pca=config.get('use_pca', True),
             pca_variance_threshold=config.get('pca_variance_threshold', 0.95),
             random_state=config.get('random_state', 42)
         )
@@ -122,18 +123,26 @@ def run_preprocessing_pipeline(
         # 11. Salvataggio risultati
         logger.info("Step 11: Salvataggio risultati...")
         
+        # Determina i nomi delle colonne in base al tipo di trasformazione
+        if transformation_info.get('use_pca', True):
+            # Con PCA: usa nomi PC1, PC2, etc.
+            feature_columns = [f'PC{i+1}' for i in range(X_train_clean.shape[1])]
+        else:
+            # Senza PCA: mantieni i nomi originali delle colonne
+            feature_columns = X_train.columns.tolist()
+        
         # Converte array numpy in DataFrame per il salvataggio
         X_train_df = pd.DataFrame(
             X_train_clean, 
-            columns=[f'PC{i+1}' for i in range(X_train_clean.shape[1])]
+            columns=feature_columns
         )
         X_val_df = pd.DataFrame(
             X_val_transformed,
-            columns=[f'PC{i+1}' for i in range(X_val_transformed.shape[1])]
+            columns=feature_columns
         )
         X_test_df = pd.DataFrame(
             X_test_transformed,
-            columns=[f'PC{i+1}' for i in range(X_test_transformed.shape[1])]
+            columns=feature_columns
         )
         y_train_df = pd.DataFrame({'target_log': y_train_clean})
         y_val_df = pd.DataFrame({'target_log': y_val})
@@ -173,8 +182,9 @@ def run_preprocessing_pipeline(
             'filter_info_numeric': filter_info_num,
             'transformation_info': {
                 'original_features': transformation_info['original_features'],
-                'pca_components': transformation_info['pca_components'],
-                'variance_explained': float(transformation_info['variance_explained'])
+                'transformed_features': transformation_info['transformed_features'],
+                'variance_explained': float(transformation_info['variance_explained']),
+                'use_pca': transformation_info.get('use_pca', True)
             },
             'config_used': config
         }
@@ -183,8 +193,13 @@ def run_preprocessing_pipeline(
         
         logger.info("=== PREPROCESSING COMPLETATO CON SUCCESSO ===")
         logger.info(f"Dataset finale: {X_train_clean.shape[0]} train + {X_val_transformed.shape[0]} val + {X_test_transformed.shape[0]} test")
-        logger.info(f"Features finali: {X_train_clean.shape[1]} (PCA)")
-        logger.info(f"Varianza preservata: {transformation_info['variance_explained']:.3f}")
+        
+        if transformation_info.get('use_pca', True):
+            logger.info(f"Features finali: {X_train_clean.shape[1]} (PCA)")
+            logger.info(f"Varianza preservata: {transformation_info['variance_explained']:.3f}")
+        else:
+            logger.info(f"Features finali: {X_train_clean.shape[1]} (solo scaling)")
+            logger.info("Nessuna perdita di varianza (solo scaling)")
         
     except Exception as e:
         logger.error(f"Errore nella pipeline di preprocessing: {e}")

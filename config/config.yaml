@@ -33,6 +33,7 @@ preprocessing:
   min_methods_outlier: 2
   
   # PCA
+  use_pca: true
   pca_variance_threshold: 0.95
   
   # Split

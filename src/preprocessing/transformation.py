@@ -225,17 +225,19 @@ def apply_transformations(
     X_train: pd.DataFrame,
     X_val: pd.DataFrame = None,
     X_test: pd.DataFrame = None,
+    use_pca: bool = True,
     pca_variance_threshold: float = 0.95,
     random_state: int = 42
 ) -> Tuple:
     """
-    Applica tutte le trasformazioni (scaling + PCA).
+    Applica tutte le trasformazioni (scaling + PCA opzionale).
     
     Args:
         X_train: Feature di training
         X_val: Feature di validation (opzionale)
         X_test: Feature di test (opzionale)
-        pca_variance_threshold: Soglia varianza per PCA
+        use_pca: Se True, applica PCA dopo scaling
+        pca_variance_threshold: Soglia varianza per PCA (solo se use_pca=True)
         random_state: Seed per riproducibilità
         
     Returns:
@@ -247,32 +249,80 @@ def apply_transformations(
     scaling_results = scale_features(X_train, X_val, X_test)
     scaler = scaling_results[-1]  # L'ultimo elemento è sempre il scaler
     
-    # PCA
-    pca_results = apply_pca(
-        *scaling_results[:-1],  # Passa tutti i set scalati eccetto il scaler
-        X_train_columns=X_train.columns, 
-        variance_threshold=pca_variance_threshold, 
-        random_state=random_state
-    )
-    
-    pca_model = pca_results[-2]  # Penultimo elemento è il modello PCA
-    loadings = pca_results[-1]   # Ultimo elemento sono i loadings
-    
-    # Informazioni sulle trasformazioni
-    transformation_info = {
-        'scaler': scaler,
-        'pca_model': pca_model,
-        'loadings': loadings,
-        'original_features': X_train.shape[1],
-        'pca_components': pca_results[0].shape[1],  # Prima trasformazione (train)
-        'variance_explained': pca_model.explained_variance_ratio_.sum()
-    }
-    
-    logger.info(f"Trasformazioni completate: {X_train.shape[1]} -> {pca_results[0].shape[1]} feature")
-    logger.info(f"Varianza preservata: {transformation_info['variance_explained']:.3f}")
-    
-    # Restituisci i dati trasformati + info
-    return pca_results[:-2] + (transformation_info,)
+    if use_pca:
+        # PCA
+        logger.info("Applicazione PCA dopo scaling...")
+        pca_results = apply_pca(
+            *scaling_results[:-1],  # Passa tutti i set scalati eccetto il scaler
+            X_train_columns=X_train.columns, 
+            variance_threshold=pca_variance_threshold, 
+            random_state=random_state
+        )
+        
+        pca_model = pca_results[-2]  # Penultimo elemento è il modello PCA
+        loadings = pca_results[-1]   # Ultimo elemento sono i loadings
+        
+        # Informazioni sulle trasformazioni
+        transformation_info = {
+            'scaler': scaler,
+            'pca_model': pca_model,
+            'loadings': loadings,
+            'original_features': X_train.shape[1],
+            'transformed_features': pca_results[0].shape[1],  # Prima trasformazione (train)
+            'variance_explained': pca_model.explained_variance_ratio_.sum(),
+            'use_pca': True
+        }
+        
+        logger.info(f"Trasformazioni completate: {X_train.shape[1]} -> {pca_results[0].shape[1]} feature (con PCA)")
+        logger.info(f"Varianza preservata: {transformation_info['variance_explained']:.3f}")
+        
+        # Restituisci i dati trasformati + info
+        return pca_results[:-2] + (transformation_info,)
+    else:
+        # Solo scaling, senza PCA
+        logger.info("Applicazione solo scaling (senza PCA)...")
+        
+        # Converte array numpy in DataFrame per mantenere i nomi delle colonne
+        X_train_scaled = pd.DataFrame(
+            scaling_results[0], 
+            columns=X_train.columns,
+            index=X_train.index
+        )
+        
+        results = [X_train_scaled]
+        
+        if X_val is not None:
+            X_val_scaled = pd.DataFrame(
+                scaling_results[1], 
+                columns=X_val.columns,
+                index=X_val.index
+            )
+            results.append(X_val_scaled)
+        
+        if X_test is not None:
+            X_test_scaled = pd.DataFrame(
+                scaling_results[2], 
+                columns=X_test.columns,
+                index=X_test.index
+            )
+            results.append(X_test_scaled)
+        
+        # Informazioni sulle trasformazioni
+        transformation_info = {
+            'scaler': scaler,
+            'pca_model': None,
+            'loadings': None,
+            'original_features': X_train.shape[1],
+            'transformed_features': X_train.shape[1],  # Stesso numero di feature
+            'variance_explained': 1.0,  # Nessuna perdita di varianza
+            'use_pca': False
+        }
+        
+        logger.info(f"Trasformazioni completate: {X_train.shape[1]} -> {X_train.shape[1]} feature (solo scaling)")
+        logger.info("Nessuna perdita di varianza (solo scaling)")
+        
+        # Restituisci i dati trasformati + info
+        return tuple(results) + (transformation_info,)
 
 def inverse_transform_target(y_log: pd.Series) -> pd.Series:
     """
