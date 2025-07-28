@@ -9,7 +9,6 @@ database:
 paths:
   data_raw: "data/raw/"
   data_processed: "data/processed/"
-  data_interim: "data/interim/"
   models: "models/"
   logs: "logs/"
 
@@ -80,16 +79,9 @@ models:
     hist_gradient_boosting: true
   
      # Ensemble models
-   ensemble:
-     voting_regressor: true
-     stacking_regressor: true
-  
-  xgboost:
-    enabled: true
-    params:
-      n_estimators: 100
-      random_state: 42
-      learning_rate: 0.1
+    ensemble:
+      voting_regressor: true
+      stacking_regressor: true
 
 # Ottimizzazione iperparametri
 tuning:
@@ -101,7 +93,7 @@ tuning:
 logging:
   level: "INFO"
   format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-  file: "logs/ml_pipeline.log"
+  file: "logs/pipeline.log"
 
 # Esecuzione pipeline
 execution:
@@ -112,4 +104,4 @@ execution:
     - training
     - evaluation
   
-  force_reload: false  # Se True, rigenera tutto da capo
+  force_reload: true  # Se True, rigenera tutto da capo
