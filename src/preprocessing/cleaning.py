@@ -1,87 +1,44 @@
 import pandas as pd
 import numpy as np
 from scipy import stats
-from scipy.stats import normaltest
 from sklearn.ensemble import IsolationForest
-import matplotlib.pyplot as plt
-from typing import Tuple, Dict, Any
+from typing import Tuple, Dict, Any, List
 from ..utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-def remove_non_predictive_columns(df: pd.DataFrame, cols_to_drop: list) -> pd.DataFrame:
-    """
-    Rimuove colonne che non dovrebbero essere disponibili a priori.
-    
-    Args:
-        df: DataFrame da pulire
-        cols_to_drop: Lista delle colonne da rimuovere
-        
-    Returns:
-        DataFrame senza le colonne specificate
-    """
-    logger.info("Rimozione colonne non predittive...")
-    
-    initial_cols = df.shape[1]
-    existing_cols = [col for col in cols_to_drop if col in df.columns]
-    
-    if existing_cols:
-        df = df.drop(columns=existing_cols)
-        logger.info(f"Rimosse {len(existing_cols)} colonne: {existing_cols}")
-    else:
-        logger.info("Nessuna colonna da rimuovere trovata")
-    
-    logger.info(f"Colonne: {initial_cols} -> {df.shape[1]}")
-    return df
-
-def remove_constant_columns(df: pd.DataFrame) -> Tuple[pd.DataFrame, list]:
-    """
-    Rimuove colonne costanti o quasi-costanti.
-    
-    Args:
-        df: DataFrame da pulire
-        
-    Returns:
-        Tuple con DataFrame pulito e lista colonne rimosse
-    """
-    logger.info("Rimozione colonne costanti...")
-    
-    initial_cols = df.shape[1]
-    nunici = df.nunique(dropna=False)
-    costanti = nunici[nunici <= 1].index.tolist()
-    
-    if costanti:
-        df = df.drop(columns=costanti)
-        logger.info(f"Rimosse {len(costanti)} colonne costanti: {costanti}")
-    else:
-        logger.info("Nessuna colonna costante trovata")
-    
-    logger.info(f"Colonne: {initial_cols} -> {df.shape[1]}")
-    return df, costanti
-
-def transform_target_and_detect_outliers(
-    y_train: pd.Series, 
-    X_train_scaled: np.ndarray,
-    z_threshold: float = 3.0,
+def transform_target_and_detect_outliers_by_category(
+    y_train: pd.Series,
+    X_train: pd.DataFrame,  # Serve il DataFrame originale, non scaled
+    category_column: str = 'AI_IdCategoriaCatastale',  # o 'CC_Id'
+    z_threshold: float = 2.5, 
     iqr_multiplier: float = 1.5,
-    contamination: float = 0.1,
-    min_methods: int = 2
-) -> Tuple[pd.Series, np.ndarray, IsolationForest]:
+    contamination: float = 0.05, 
+    min_methods: int = 2,
+    min_samples_per_category: int = 30  # Minimo campioni per outlier detection
+) -> Tuple[pd.Series, np.ndarray, Dict[str, Any]]:
     """
-    Trasforma il target e rileva outliers solo sul training set.
+    Trasforma il target e rileva outliers stratificando per categoria catastale.
     
     Args:
         y_train: Serie target di training
-        X_train_scaled: Features di training scalate
-        z_threshold: Soglia per Z-score
-        iqr_multiplier: Moltiplicatore per IQR
-        contamination: Parametro per Isolation Forest
+        X_train: DataFrame features originali (serve per categoria)
+        category_column: Nome colonna categoria catastale
+        z_threshold: Soglia per Z-score (per categoria)
+        iqr_multiplier: Moltiplicatore per IQR (per categoria)
+        contamination: Parametro per Isolation Forest (per categoria)
         min_methods: Numero minimo di metodi che devono identificare un outlier
+        min_samples_per_category: Minimo campioni per fare outlier detection
         
     Returns:
-        Tuple con target trasformato, mask outliers, detector
+        Tuple con target trasformato, mask outliers, info dettagliate
     """
-    logger.info("Trasformazione target e rilevamento outliers...")
+    logger.info("Trasformazione target e outlier detection stratificata per categoria...")
+    
+    # Verifica presenza colonna categoria
+    if category_column not in X_train.columns:
+        logger.warning(f"Colonna {category_column} non trovata. Fallback a detection globale.")
+        return _fallback_global_detection(y_train, z_threshold, iqr_multiplier, contamination, min_methods)
     
     # Step 1: Trasformazione logaritmica
     original_skew = stats.skew(y_train)
@@ -91,143 +48,225 @@ def transform_target_and_detect_outliers(
     logger.info(f"Skewness originale: {original_skew:.3f}")
     logger.info(f"Skewness dopo log: {log_skew:.3f}")
     
-    # Step 2: Outlier detection
-    original_shape = len(y_train_log)
+    # Step 2: Outlier detection per categoria
+    categories = X_train[category_column].value_counts()
+    logger.info(f"Categorie catastali trovate: {len(categories)}")
     
-    # Metodo 1: Z-Score
+    # Inizializza mask outliers
+    outliers_mask_global = np.zeros(len(y_train_log), dtype=bool)
+    category_info = {}
+    
+    for category, count in categories.items():
+        if count < min_samples_per_category:
+            logger.warning(f"Categoria {category}: solo {count} campioni, skip outlier detection")
+            category_info[category] = {
+                'count': count,
+                'outliers_detected': 0,
+                'outlier_methods': [],
+                'skipped': True,
+                'reason': f'Meno di {min_samples_per_category} campioni'
+            }
+            continue
+        
+        # Seleziona dati per questa categoria
+        category_mask = X_train[category_column] == category
+        y_category = y_train_log[category_mask]
+        
+        logger.info(f"\nCategoria {category}: {count} campioni")
+        logger.info(f"  Target range: {y_category.min():.3f} - {y_category.max():.3f}")
+        logger.info(f"  Target μ±σ: {y_category.mean():.3f} ± {y_category.std():.3f}")
+        
+        # Applica detection methods per questa categoria
+        outliers_methods = []
+        
+        # Metodo 1: Z-Score (per categoria)
+        z_scores = stats.zscore(y_category)
+        z_outliers_idx = np.where(category_mask)[0][np.abs(z_scores) > z_threshold]
+        if len(z_outliers_idx) > 0:
+            outliers_methods.append(('z_score', z_outliers_idx))
+            logger.info(f"  Z-Score: {len(z_outliers_idx)} outliers (soglia: {z_threshold})")
+        
+        # Metodo 2: IQR (per categoria)
+        Q1 = y_category.quantile(0.25)
+        Q3 = y_category.quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - iqr_multiplier * IQR
+        upper_bound = Q3 + iqr_multiplier * IQR
+        
+        iqr_outliers_local = (y_category < lower_bound) | (y_category > upper_bound)
+        iqr_outliers_idx = np.where(category_mask)[0][iqr_outliers_local]
+        if len(iqr_outliers_idx) > 0:
+            outliers_methods.append(('iqr', iqr_outliers_idx))
+            logger.info(f"  IQR: {len(iqr_outliers_idx)} outliers (bounds: {lower_bound:.3f} - {upper_bound:.3f})")
+        
+        # Metodo 3: Isolation Forest (per categoria, solo se abbastanza campioni)
+        if count >= 50:  # Isolation Forest funziona meglio con più dati
+            try:
+                # Usa features numeriche per questa categoria
+                X_category_numeric = X_train[category_mask].select_dtypes(include=[np.number])
+                if X_category_numeric.shape[1] > 0:
+                    iso_forest = IsolationForest(
+                        contamination=contamination,
+                        random_state=42,
+                        n_jobs=1
+                    )
+                    iso_outliers_pred = iso_forest.fit_predict(X_category_numeric)
+                    iso_outliers_idx = np.where(category_mask)[0][iso_outliers_pred == -1]
+                    if len(iso_outliers_idx) > 0:
+                        outliers_methods.append(('isolation_forest', iso_outliers_idx))
+                        logger.info(f"  Isolation Forest: {len(iso_outliers_idx)} outliers")
+            except Exception as e:
+                logger.warning(f"  Isolation Forest fallito per categoria {category}: {e}")
+        
+        # Combine methods per questa categoria
+        outlier_votes = np.zeros(len(y_train_log))
+        method_names = []
+        
+        for method_name, outlier_indices in outliers_methods:
+            outlier_votes[outlier_indices] += 1
+            method_names.append(method_name)
+        
+        # Considera outlier solo se rilevato da almeno min_methods
+        category_outliers_mask = outlier_votes >= min_methods
+        category_outliers_count = category_outliers_mask.sum()
+        
+        # Applica alla mask globale
+        outliers_mask_global |= category_outliers_mask
+        
+        # Salva info categoria
+        category_info[category] = {
+            'count': count,
+            'outliers_detected': category_outliers_count,
+            'outlier_percentage': (category_outliers_count / count) * 100,
+            'outlier_methods': method_names,
+            'mean_target': float(y_category.mean()),
+            'std_target': float(y_category.std()),
+            'skipped': False
+        }
+        
+        logger.info(f"  Outliers finali: {category_outliers_count}/{count} ({category_outliers_count/count*100:.1f}%)")
+    
+    # Summary finale
+    total_outliers = outliers_mask_global.sum()
+    total_samples = len(y_train_log)
+    
+    logger.info(f"\n=== SUMMARY OUTLIER DETECTION PER CATEGORIA ===")
+    logger.info(f"Outliers totali: {total_outliers}/{total_samples} ({total_outliers/total_samples*100:.2f}%)")
+    
+    # Log dettagliato per categoria
+    for category, info in category_info.items():
+        if not info['skipped']:
+            logger.info(f"  {category}: {info['outliers_detected']}/{info['count']} "
+                       f"({info['outlier_percentage']:.1f}%) - "
+                       f"methods: {info['outlier_methods']}")
+    
+    # Prepara info di ritorno
+    detection_info = {
+        'total_outliers': int(total_outliers),
+        'total_samples': int(total_samples),
+        'outlier_percentage_global': float(total_outliers/total_samples*100),
+        'category_info': category_info,
+        'method': 'stratified_by_category',
+        'category_column': category_column,
+        'parameters': {
+            'z_threshold': z_threshold,
+            'iqr_multiplier': iqr_multiplier,
+            'contamination': contamination,
+            'min_methods': min_methods,
+            'min_samples_per_category': min_samples_per_category
+        }
+    }
+    
+    return y_train_log, outliers_mask_global, detection_info
+
+def _fallback_global_detection(
+    y_train: pd.Series,
+    z_threshold: float,
+    iqr_multiplier: float,
+    contamination: float,
+    min_methods: int
+) -> Tuple[pd.Series, np.ndarray, Dict[str, Any]]:
+    """Fallback alla detection globale se categoria non disponibile."""
+    logger.warning("Usando outlier detection globale come fallback")
+    
+    # Trasformazione log
+    y_train_log = np.log1p(y_train)
+    
+    # Detection globale semplificata
+    outlier_votes = np.zeros(len(y_train_log))
+    
+    # Z-Score globale
     z_scores = stats.zscore(y_train_log)
     z_outliers = np.abs(z_scores) > z_threshold
+    outlier_votes[z_outliers] += 1
     
-    # Metodo 2: IQR
-    Q1 = y_train_log.quantile(0.25)
-    Q3 = y_train_log.quantile(0.75)
+    # IQR globale
+    Q1, Q3 = y_train_log.quantile([0.25, 0.75])
     IQR = Q3 - Q1
-    iqr_outliers = (y_train_log < (Q1 - iqr_multiplier * IQR)) | (y_train_log > (Q3 + iqr_multiplier * IQR))
+    iqr_outliers = (y_train_log < Q1 - iqr_multiplier * IQR) | (y_train_log > Q3 + iqr_multiplier * IQR)
+    outlier_votes[iqr_outliers] += 1
     
-    # Metodo 3: Isolation Forest
-    iso_forest = IsolationForest(contamination=contamination, random_state=42)
-    iso_outliers = iso_forest.fit_predict(X_train_scaled) == -1
+    # Outlier finale
+    outliers_mask = outlier_votes >= min_methods
     
-    # Combina i metodi
-    combined_outliers = (
-        z_outliers.astype(int) + 
-        iqr_outliers.astype(int) + 
-        iso_outliers.astype(int)
-    ) >= min_methods
+    detection_info = {
+        'total_outliers': int(outliers_mask.sum()),
+        'total_samples': len(y_train_log),
+        'outlier_percentage_global': float(outliers_mask.sum()/len(y_train_log)*100),
+        'method': 'global_fallback'
+    }
     
-    # Log risultati
-    logger.info(f"Z-Score (>{z_threshold}): {z_outliers.sum()} outliers ({z_outliers.sum()/len(y_train_log)*100:.2f}%)")
-    logger.info(f"IQR ({iqr_multiplier}x): {iqr_outliers.sum()} outliers ({iqr_outliers.sum()/len(y_train_log)*100:.2f}%)")
-    logger.info(f"Isolation Forest: {iso_outliers.sum()} outliers ({iso_outliers.sum()/len(y_train_log)*100:.2f}%)")
-    logger.info(f"Combined (≥{min_methods} metodi): {combined_outliers.sum()} outliers ({combined_outliers.sum()/len(y_train_log)*100:.2f}%)")
-    
-    # Visualizzazione
-    _plot_target_transformation(y_train, y_train_log, combined_outliers)
-    
-    # Test di normalità
-    _test_normality(y_train, y_train_log, combined_outliers)
-    
-    return y_train_log, combined_outliers, iso_forest
+    return y_train_log, outliers_mask, detection_info
 
-def _plot_target_transformation(y_train: pd.Series, y_train_log: pd.Series, outliers_mask: np.ndarray) -> None:
+def analyze_outliers_by_category(
+    y_train: pd.Series,
+    X_train: pd.DataFrame,
+    outliers_mask: np.ndarray,
+    category_column: str = 'AI_IdCategoriaCatastale'
+) -> pd.DataFrame:
     """
-    Crea grafici per visualizzare la trasformazione del target.
+    Analizza gli outliers rilevati per categoria per validation.
     
     Args:
         y_train: Target originale
-        y_train_log: Target log-trasformato
+        X_train: Features originali 
         outliers_mask: Mask degli outliers
-    """
-    from scipy.stats import probplot
-    
-    fig, axes = plt.subplots(2, 3, figsize=(18, 10))
-    
-    original_skew = stats.skew(y_train)
-    log_skew = stats.skew(y_train_log)
-    
-    # Row 1: Target originale
-    axes[0,0].hist(y_train, bins=50, alpha=0.7, color='blue', edgecolor='black')
-    axes[0,0].set_title(f'Target Originale\nSkewness: {original_skew:.3f}')
-    axes[0,0].set_xlabel('Target')
-    
-    axes[0,1].boxplot(y_train, vert=True)
-    axes[0,1].set_title('Boxplot Originale')
-    axes[0,1].set_ylabel('Target')
-    
-    # Q-Q Plot originale
-    probplot(y_train, dist="norm", plot=axes[0,2])
-    axes[0,2].set_title('Q-Q Plot Originale')
-    
-    # Row 2: Target log-trasformato con outliers
-    axes[1,0].hist(y_train_log[~outliers_mask], bins=50, alpha=0.7, label='Normal', color='blue')
-    if outliers_mask.sum() > 0:
-        axes[1,0].hist(y_train_log[outliers_mask], bins=20, alpha=0.7, label='Outliers', color='red')
-    axes[1,0].set_title(f'Target Log-trasformato\nSkewness: {log_skew:.3f}')
-    axes[1,0].set_xlabel('log(Target + 1)')
-    axes[1,0].legend()
-    
-    axes[1,1].boxplot(y_train_log, vert=True)
-    axes[1,1].set_title('Boxplot Log-trasformato')
-    axes[1,1].set_ylabel('log(Target + 1)')
-    
-    # Q-Q Plot log-trasformato
-    probplot(y_train_log, dist="norm", plot=axes[1,2])
-    axes[1,2].set_title('Q-Q Plot Log-trasformato')
-    
-    plt.tight_layout()
-    plt.show()
-
-def _test_normality(y_train: pd.Series, y_train_log: pd.Series, outliers_mask: np.ndarray) -> None:
-    """
-    Esegue test di normalità sui dati.
-    
-    Args:
-        y_train: Target originale
-        y_train_log: Target log-trasformato
-        outliers_mask: Mask degli outliers
-    """
-    logger.info("Test di Normalità:")
-    
-    # Test su campione per performance
-    sample_size = min(5000, len(y_train))
-    _, p_orig = normaltest(y_train.sample(sample_size, random_state=42))
-    logger.info(f"Target originale - D'Agostino-Pearson p-value: {p_orig:.6f}")
-    
-    y_train_log_clean = y_train_log[~outliers_mask]
-    if len(y_train_log_clean) > 0:
-        sample_size_clean = min(5000, len(y_train_log_clean))
-        if len(y_train_log_clean) >= sample_size_clean:
-            _, p_log = normaltest(y_train_log_clean.sample(sample_size_clean, random_state=42))
-            logger.info(f"Target log-trasformato (senza outliers) - D'Agostino-Pearson p-value: {p_log:.6f}")
-
-def clean_data(
-    df: pd.DataFrame, 
-    target_column: str,
-    config: Dict[str, Any]
-) -> Tuple[pd.DataFrame, Dict[str, Any]]:
-    """
-    Applica tutte le operazioni di pulizia ai dati.
-    
-    Args:
-        df: DataFrame da pulire  
-        target_column: Nome della colonna target
-        config: Dizionario con i parametri di configurazione
+        category_column: Colonna categoria
         
     Returns:
-        Tuple con DataFrame pulito e informazioni sulle operazioni
+        DataFrame con analisi outliers per categoria
     """
-    logger.info("Avvio pulizia completa dei dati...")
+    if category_column not in X_train.columns:
+        logger.warning(f"Colonna {category_column} non trovata per analisi")
+        return pd.DataFrame()
     
-    cleaning_info = {}
+    analysis_data = []
     
-    # Rimozione colonne non predittive
-    cols_to_drop = ['A_Id', 'A_Codice', 'A_Prezzo', 'AI_Id']
-    df = remove_non_predictive_columns(df, cols_to_drop)
+    for category in X_train[category_column].unique():
+        category_mask = X_train[category_column] == category
+        category_outliers = outliers_mask & category_mask
+        
+        total_in_category = category_mask.sum()
+        outliers_in_category = category_outliers.sum()
+        
+        if total_in_category > 0:
+            y_category = y_train[category_mask]
+            y_category_clean = y_train[category_mask & ~outliers_mask]
+            
+            analysis_data.append({
+                'Categoria': category,
+                'Totale_Campioni': total_in_category,
+                'Outliers_Rilevati': outliers_in_category,
+                'Perc_Outliers': (outliers_in_category / total_in_category) * 100,
+                'Target_Mean_All': y_category.mean(),
+                'Target_Mean_Clean': y_category_clean.mean() if len(y_category_clean) > 0 else np.nan,
+                'Target_Std_All': y_category.std(),
+                'Target_Std_Clean': y_category_clean.std() if len(y_category_clean) > 0 else np.nan,
+                'Target_Min': y_category.min(),
+                'Target_Max': y_category.max()
+            })
     
-    # Rimozione colonne costanti
-    df, removed_constants = remove_constant_columns(df)
-    cleaning_info['removed_constants'] = removed_constants
+    df_analysis = pd.DataFrame(analysis_data)
+    df_analysis = df_analysis.sort_values('Perc_Outliers', ascending=False)
     
-    logger.info(f"Pulizia completata. Shape finale: {df.shape}")
-    
-    return df, cleaning_info
+    return df_analysis
