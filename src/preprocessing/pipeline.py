@@ -58,8 +58,7 @@ def run_preprocessing_pipeline(
         df, imputation_info = handle_missing_values(df, target_column)
         
         # 5. Filtro correlazioni categoriche (pre-split)
-        logger.info("Step 5: Filtro correlazioni categoriche...")
-        df, _, _, filter_info_cat = filter_features(
+        df, *_, filter_info_cat = filter_features(
             df, 
             cramer_threshold=config.get('cramer_threshold', 0.95)
         )
@@ -70,7 +69,7 @@ def run_preprocessing_pipeline(
             df, 
             target_column,
             test_size=config.get('test_size', 0.2),
-            val_size=config.get('val_size', 0.18),
+            val_size=config.get('val_size', 0.2),
             random_state=config.get('random_state', 42)
         )
         
