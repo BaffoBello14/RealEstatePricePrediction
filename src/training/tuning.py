@@ -8,6 +8,7 @@ import optunahub
 from datetime import datetime
 from typing import Dict, Any, Callable
 from optuna.pruners import MedianPruner
+from sklearn.model_selection import cross_val_score, KFold, TimeSeriesSplit
 from ..utils.logger import get_logger
 from .models import (
     objective_random_forest, objective_gradient_boosting, objective_xgboost,
@@ -17,34 +18,63 @@ from .models import (
 
 logger = get_logger(__name__)
 
-def create_optimization_objective(objective_func: Callable, X_train, y_train, config: Dict[str, Any]) -> Callable:
+def create_objective_function(model_name: str, X_train, y_train, config: Dict[str, Any]):
     """
-    Crea una funzione obiettivo wrapper per Optuna.
+    Crea funzione obiettivo per Optuna con supporto TimeSeriesSplit.
     
     Args:
-        objective_func: Funzione obiettivo specifica del modello
+        model_name: Nome del modello
         X_train: Features di training
         y_train: Target di training
-        config: Configurazione del training
+        config: Configurazione
         
     Returns:
-        Funzione obiettivo wrapper
+        Funzione obiettivo per Optuna
     """
-    def objective(trial):
-        return objective_func(
-            trial, X_train, y_train,
-            cv_folds=config.get('cv_folds', 5),
-            random_state=config.get('random_state', 42),
-            n_jobs=config.get('n_jobs', -1)
+    cv_folds = config.get('cv_folds', 5)
+    random_state = config.get('random_state', 42)
+    n_jobs = config.get('n_jobs', -1)
+    use_time_series_cv = config.get('use_time_series_cv', False)
+    
+    # Crea CV strategy
+    if use_time_series_cv:
+        cv_strategy = TimeSeriesSplit(n_splits=cv_folds)
+        logger.info(f"Ottimizzazione {model_name} con TimeSeriesSplit")
+    else:
+        cv_strategy = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
+        logger.info(f"Ottimizzazione {model_name} con KFold")
+    
+    # Seleziona la funzione obiettivo appropriata
+    objective_functions = {
+        'RandomForest': objective_random_forest,
+        'GradientBoosting': objective_gradient_boosting,
+        'XGBoost': objective_xgboost,
+        'CatBoost': objective_catboost,
+        'LightGBM': objective_lightgbm,
+        'HistGradientBoosting': objective_hist_gradient_boosting,
+        'TabM': objective_tabm
+    }
+    
+    base_objective = objective_functions.get(model_name)
+    if base_objective is None:
+        raise ValueError(f"Modello non supportato per ottimizzazione: {model_name}")
+    
+    def objective_with_cv(trial):
+        return base_objective(
+            trial, X_train, y_train, 
+            cv_folds=cv_folds, 
+            random_state=random_state, 
+            n_jobs=n_jobs,
+            cv_strategy=cv_strategy
         )
-    return objective
+    
+    return objective_with_cv
 
-def optimize_model(objective_func: Callable, model_name: str, X_train, y_train, config: Dict[str, Any]) -> Dict[str, Any]:
+def optimize_model(model_name: str, X_train, y_train, config: Dict[str, Any]) -> Dict[str, Any]:
     """
     Ottimizza un singolo modello usando Optuna.
     
     Args:
-        objective_func: Funzione obiettivo del modello
         model_name: Nome del modello
         X_train: Features di training
         y_train: Target di training
@@ -60,9 +90,12 @@ def optimize_model(objective_func: Callable, model_name: str, X_train, y_train, 
     timeout = config.get('optuna_timeout', 7200)
     
     try:
-        # Configurazione sampler e pruner
-        module = optunahub.load_module(package="samplers/auto_sampler")
-        pruner = MedianPruner(n_startup_trials=10, n_warmup_steps=5, interval_steps=1)
+        # Configurazione pruner
+        pruner = MedianPruner(
+            n_startup_trials=5,
+            n_warmup_steps=10,
+            interval_steps=5
+        )
         
         study = optuna.create_study(
             direction='minimize',
@@ -72,7 +105,7 @@ def optimize_model(objective_func: Callable, model_name: str, X_train, y_train, 
         )
         
         # Crea objective wrapper
-        objective = create_optimization_objective(objective_func, X_train, y_train, config)
+        objective = create_objective_function(model_name, X_train, y_train, config)
         
         # Ottimizzazione
         start_time = datetime.now()
@@ -122,20 +155,20 @@ def run_full_optimization(X_train, y_train, config: Dict[str, Any]) -> Dict[str,
     
     # Definizione modelli da ottimizzare
     models_to_optimize = [
-        (objective_random_forest, "RandomForest"),
-        (objective_gradient_boosting, "GradientBoosting"),
-        (objective_xgboost, "XGBoost"),
-        (objective_catboost, "CatBoost"),
-        (objective_lightgbm, "LightGBM"),
-        (objective_hist_gradient_boosting, "HistGradientBoosting"),
-        (objective_tabm, "TabM")
+        "RandomForest",
+        "GradientBoosting", 
+        "XGBoost",
+        "CatBoost",
+        "LightGBM",
+        "HistGradientBoosting",
+        "TabM"
     ]
     
     total_start_time = datetime.now()
     
-    for objective_func, model_name in models_to_optimize:
+    for model_name in models_to_optimize:
         try:
-            result = optimize_model(objective_func, model_name, X_train, y_train, config)
+            result = optimize_model(model_name, X_train, y_train, config)
             optimization_results[model_name] = result
             
             if result.get('best_score') is not None:

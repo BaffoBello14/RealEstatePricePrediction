@@ -43,7 +43,8 @@ def advanced_categorical_encoding(
     target_column: str, 
     low_card_threshold: int = 10,
     high_card_max: int = 100,
-    random_state: int = 42
+    random_state: int = 42,
+    apply_target_encoding: bool = True
 ) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """
     Encoding avanzato per variabili categoriche.
@@ -54,6 +55,7 @@ def advanced_categorical_encoding(
         low_card_threshold: Soglia per bassa cardinalità (one-hot)
         high_card_max: Soglia massima per alta cardinalità (target encoding)
         random_state: Seed per riproducibilità
+        apply_target_encoding: Se True applica target encoding (ATTENZIONE: può causare data leakage pre-split)
         
     Returns:
         Tuple con DataFrame encodato e info degli encoder
@@ -87,7 +89,7 @@ def advanced_categorical_encoding(
         encoding_info['one_hot'] = low_card
     
     # Target encoding per alta cardinalità (solo se target è numerico)
-    if high_card and df[target_column].dtype in ['int64', 'float64']:
+    if high_card and df[target_column].dtype in ['int64', 'float64'] and apply_target_encoding:
         logger.info(f"Target encoding per {len(high_card)} variabili ad alta cardinalità")
         target_encoders = {}
         
@@ -117,7 +119,8 @@ def encode_features(
     target_column: str,
     low_card_threshold: int = 10,
     high_card_max: int = 100,
-    random_state: int = 42
+    random_state: int = 42,
+    apply_target_encoding: bool = True
 ) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """
     Applica tutti gli encoding alle feature categoriche.
@@ -128,6 +131,7 @@ def encode_features(
         low_card_threshold: Soglia per bassa cardinalità
         high_card_max: Soglia massima per alta cardinalità
         random_state: Seed per riproducibilità
+        apply_target_encoding: Se True applica target encoding (ATTENZIONE: può causare data leakage pre-split)
         
     Returns:
         Tuple con DataFrame encodato e informazioni sugli encoder
@@ -139,7 +143,7 @@ def encode_features(
     
     # Encoding categoriche avanzato
     df, encoding_info = advanced_categorical_encoding(
-        df, target_column, low_card_threshold, high_card_max, random_state
+        df, target_column, low_card_threshold, high_card_max, random_state, apply_target_encoding
     )
     
     encoding_info['converted_to_numeric'] = converted_cols

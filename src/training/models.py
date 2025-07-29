@@ -39,7 +39,7 @@ def get_baseline_models(random_state: int = 42) -> Dict[str, Any]:
         'SVR': SVR()
     }
 
-def objective_random_forest(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1):
+def objective_random_forest(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1, cv_strategy=None):
     """Funzione obiettivo per Random Forest"""
     params = {
         'n_estimators': trial.suggest_int('n_estimators', 100, 1000, step=50),
@@ -53,12 +53,17 @@ def objective_random_forest(trial, X_train, y_train, cv_folds=5, random_state=42
     }
     
     model = RandomForestRegressor(**params)
-    kfold = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
-    scores = cross_val_score(model, X_train, y_train, cv=kfold, scoring='neg_root_mean_squared_error', n_jobs=n_jobs)
+    
+    # Usa cv_strategy se fornito, altrimenti KFold
+    if cv_strategy is None:
+        from sklearn.model_selection import KFold
+        cv_strategy = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
+    
+    scores = cross_val_score(model, X_train, y_train, cv=cv_strategy, scoring='neg_root_mean_squared_error', n_jobs=n_jobs)
     
     return -scores.mean()
 
-def objective_gradient_boosting(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1):
+def objective_gradient_boosting(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1, cv_strategy=None):
     """Funzione obiettivo per Gradient Boosting"""
     params = {
         'n_estimators': trial.suggest_int('n_estimators', 100, 1000, step=50),
@@ -72,12 +77,17 @@ def objective_gradient_boosting(trial, X_train, y_train, cv_folds=5, random_stat
     }
     
     model = GradientBoostingRegressor(**params)
-    kfold = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
-    scores = cross_val_score(model, X_train, y_train, cv=kfold, scoring='neg_root_mean_squared_error', n_jobs=n_jobs)
+    
+    # Usa cv_strategy se fornito, altrimenti KFold
+    if cv_strategy is None:
+        from sklearn.model_selection import KFold
+        cv_strategy = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
+    
+    scores = cross_val_score(model, X_train, y_train, cv=cv_strategy, scoring='neg_root_mean_squared_error', n_jobs=n_jobs)
     
     return -scores.mean()
 
-def objective_xgboost(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1):
+def objective_xgboost(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1, cv_strategy=None):
     """Funzione obiettivo per XGBoost"""
     params = {
         'n_estimators': trial.suggest_int('n_estimators', 100, 1000, step=50),
@@ -95,12 +105,17 @@ def objective_xgboost(trial, X_train, y_train, cv_folds=5, random_state=42, n_jo
     }
     
     model = xgb.XGBRegressor(**params)
-    kfold = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
-    scores = cross_val_score(model, X_train, y_train, cv=kfold, scoring='neg_root_mean_squared_error', n_jobs=n_jobs)
+    
+    # Usa cv_strategy se fornito, altrimenti KFold
+    if cv_strategy is None:
+        from sklearn.model_selection import KFold
+        cv_strategy = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
+    
+    scores = cross_val_score(model, X_train, y_train, cv=cv_strategy, scoring='neg_root_mean_squared_error', n_jobs=n_jobs)
     
     return -scores.mean()
 
-def objective_catboost(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1):
+def objective_catboost(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1, cv_strategy=None):
     """Funzione obiettivo per CatBoost"""
     params = {
         'iterations': trial.suggest_int('iterations', 100, 1000, step=50),
@@ -120,12 +135,17 @@ def objective_catboost(trial, X_train, y_train, cv_folds=5, random_state=42, n_j
         params['subsample'] = trial.suggest_float('subsample', 0.6, 1.0)
     
     model = cb.CatBoostRegressor(**params)
-    kfold = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
-    scores = cross_val_score(model, X_train, y_train, cv=kfold, scoring='neg_root_mean_squared_error', n_jobs=n_jobs)
+    
+    # Usa cv_strategy se fornito, altrimenti KFold
+    if cv_strategy is None:
+        from sklearn.model_selection import KFold
+        cv_strategy = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
+    
+    scores = cross_val_score(model, X_train, y_train, cv=cv_strategy, scoring='neg_root_mean_squared_error', n_jobs=n_jobs)
     
     return -scores.mean()
 
-def objective_lightgbm(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1):
+def objective_lightgbm(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1, cv_strategy=None):
     """Funzione obiettivo per LightGBM"""
     params = {
         'n_estimators': trial.suggest_int('n_estimators', 100, 1000, step=50),
@@ -144,12 +164,17 @@ def objective_lightgbm(trial, X_train, y_train, cv_folds=5, random_state=42, n_j
     }
     
     model = lgb.LGBMRegressor(**params)
-    kfold = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
-    scores = cross_val_score(model, X_train, y_train, cv=kfold, scoring='neg_root_mean_squared_error', n_jobs=n_jobs)
+    
+    # Usa cv_strategy se fornito, altrimenti KFold
+    if cv_strategy is None:
+        from sklearn.model_selection import KFold
+        cv_strategy = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
+    
+    scores = cross_val_score(model, X_train, y_train, cv=cv_strategy, scoring='neg_root_mean_squared_error', n_jobs=n_jobs)
     
     return -scores.mean()
 
-def objective_hist_gradient_boosting(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1):
+def objective_hist_gradient_boosting(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1, cv_strategy=None):
     """Funzione obiettivo per Histogram-based Gradient Boosting"""
     params = {
         'max_iter': trial.suggest_int('max_iter', 100, 1000, step=50),
@@ -162,12 +187,17 @@ def objective_hist_gradient_boosting(trial, X_train, y_train, cv_folds=5, random
     }
     
     model = HistGradientBoostingRegressor(**params)
-    kfold = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
-    scores = cross_val_score(model, X_train, y_train, cv=kfold, scoring='neg_root_mean_squared_error', n_jobs=n_jobs)
+    
+    # Usa cv_strategy se fornito, altrimenti KFold
+    if cv_strategy is None:
+        from sklearn.model_selection import KFold
+        cv_strategy = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
+    
+    scores = cross_val_score(model, X_train, y_train, cv=cv_strategy, scoring='neg_root_mean_squared_error', n_jobs=n_jobs)
     
     return -scores.mean()
 
-def objective_tabm(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1):
+def objective_tabm(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1, cv_strategy=None):
     """Funzione obiettivo per TabM"""
     params = {
         'n_estimators': trial.suggest_int('n_estimators', 100, 1000, step=50),
@@ -185,8 +215,13 @@ def objective_tabm(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=
     }
     
     model = TabM(**params)
-    kfold = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
-    scores = cross_val_score(model, X_train, y_train, cv=kfold, scoring='neg_root_mean_squared_error', n_jobs=n_jobs)
+    
+    # Usa cv_strategy se fornito, altrimenti KFold
+    if cv_strategy is None:
+        from sklearn.model_selection import KFold
+        cv_strategy = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
+    
+    scores = cross_val_score(model, X_train, y_train, cv=cv_strategy, scoring='neg_root_mean_squared_error', n_jobs=n_jobs)
     
     return -scores.mean()
 
