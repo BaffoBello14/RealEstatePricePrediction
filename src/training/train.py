@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from datetime import datetime
 from typing import Dict, Any, Tuple
-from sklearn.model_selection import cross_val_score, KFold
+from sklearn.model_selection import cross_val_score, KFold, TimeSeriesSplit
 from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error, mean_absolute_percentage_error
 from ..utils.logger import get_logger
 from ..utils.io import load_dataframe
@@ -35,11 +35,19 @@ def evaluate_baseline_models(X_train, y_train, config: Dict[str, Any]) -> Dict[s
     cv_folds = config.get('cv_folds', 5)
     random_state = config.get('random_state', 42)
     n_jobs = config.get('n_jobs', -1)
+    use_time_series_cv = config.get('use_time_series_cv', False)
+    
+    # Scegli il tipo di cross-validation
+    if use_time_series_cv:
+        logger.info("Usando TimeSeriesSplit per dati temporali")
+        cv = TimeSeriesSplit(n_splits=cv_folds)
+    else:
+        logger.info("Usando KFold standard")
+        cv = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
     
     for name, model in baseline_models.items():
         try:
-            kfold = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
-            scores = cross_val_score(model, X_train, y_train, cv=kfold, scoring='neg_root_mean_squared_error', n_jobs=n_jobs)
+            scores = cross_val_score(model, X_train, y_train, cv=cv, scoring='neg_root_mean_squared_error', n_jobs=n_jobs)
             
             baseline_results[name] = {
                 'cv_score_mean': -scores.mean(),

@@ -14,8 +14,10 @@ def split_dataset_with_validation(
     target_column: str, 
     test_size: float = 0.2,
     val_size: float = 0.18,
-    random_state: int = 42
-) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.Series, pd.Series, pd.Series, pd.Series, pd.Series]:
+    random_state: int = 42,
+    use_temporal_split: bool = True,
+    date_column: str = 'A_DataStipula'
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.Series, pd.Series, pd.Series, pd.Series, pd.Series, pd.Series]:
     """
     Divide il dataset in train, validation e test.
     
@@ -25,11 +27,13 @@ def split_dataset_with_validation(
         test_size: Proporzione del test set
         val_size: Proporzione del validation set (rispetto al train+val)
         random_state: Seed per riproducibilità
+        use_temporal_split: Se True usa split temporale, altrimenti casuale
+        date_column: Nome della colonna data per split temporale
         
     Returns:
         Tuple con X_train, X_val, X_test, y_train, y_val, y_test, y_train_orig, y_val_orig, y_test_orig
     """
-    logger.info(f"Divisione dataset (test_size={test_size}, val_size={val_size})...")
+    logger.info(f"Divisione dataset (test_size={test_size}, val_size={val_size}, temporal={use_temporal_split})...")
     
     # Separa features e target
     X = df.drop(columns=[target_column])
@@ -43,16 +47,59 @@ def split_dataset_with_validation(
         # Se non disponibile, calcola dalla scala log
         y_orig = np.exp(y)
     
-    # Prima divisione: train+val vs test
-    X_temp, X_test, y_temp, y_test, y_temp_orig, y_test_orig = train_test_split(
-        X, y, y_orig, test_size=test_size, random_state=random_state, stratify=None
-    )
-    
-    # Seconda divisione: train vs val
-    val_size_adjusted = val_size / (1 - test_size)  # Aggiusta la proporzione
-    X_train, X_val, y_train, y_val, y_train_orig, y_val_orig = train_test_split(
-        X_temp, y_temp, y_temp_orig, test_size=val_size_adjusted, random_state=random_state, stratify=None
-    )
+    if use_temporal_split and date_column in df.columns:
+        logger.info(f"Usando split temporale basato su colonna: {date_column}")
+        
+        # Converte colonna data se necessario
+        if df[date_column].dtype == 'object':
+            df[date_column] = pd.to_datetime(df[date_column], errors='coerce')
+        
+        # Ordina per data
+        df_sorted = df.sort_values(date_column).reset_index(drop=True)
+        X_sorted = df_sorted.drop(columns=[target_column])
+        y_sorted = df_sorted[target_column]
+        y_orig_sorted = df_sorted[target_orig_column] if target_orig_column in df_sorted.columns else np.exp(y_sorted)
+        
+        # Calcola gli indici di split temporale
+        n_samples = len(df_sorted)
+        test_idx = int(n_samples * (1 - test_size))
+        val_idx = int(test_idx * (1 - val_size))
+        
+        # Split temporale
+        X_train = X_sorted.iloc[:val_idx].copy()
+        X_val = X_sorted.iloc[val_idx:test_idx].copy()
+        X_test = X_sorted.iloc[test_idx:].copy()
+        
+        y_train = y_sorted.iloc[:val_idx].copy()
+        y_val = y_sorted.iloc[val_idx:test_idx].copy()
+        y_test = y_sorted.iloc[test_idx:].copy()
+        
+        y_train_orig = y_orig_sorted.iloc[:val_idx].copy()
+        y_val_orig = y_orig_sorted.iloc[val_idx:test_idx].copy()
+        y_test_orig = y_orig_sorted.iloc[test_idx:].copy()
+        
+        # Log delle date di split
+        logger.info(f"Split temporale - Date range:")
+        logger.info(f"  Train: {df_sorted[date_column].iloc[0]} a {df_sorted[date_column].iloc[val_idx-1]}")
+        logger.info(f"  Val: {df_sorted[date_column].iloc[val_idx]} a {df_sorted[date_column].iloc[test_idx-1]}")
+        logger.info(f"  Test: {df_sorted[date_column].iloc[test_idx]} a {df_sorted[date_column].iloc[-1]}")
+        
+    else:
+        if use_temporal_split:
+            logger.warning(f"Colonna data '{date_column}' non trovata. Fallback a split casuale.")
+        
+        logger.info("Usando split casuale")
+        
+        # Prima divisione: train+val vs test
+        X_temp, X_test, y_temp, y_test, y_temp_orig, y_test_orig = train_test_split(
+            X, y, y_orig, test_size=test_size, random_state=random_state, stratify=None
+        )
+        
+        # Seconda divisione: train vs val
+        val_size_adjusted = val_size / (1 - test_size)  # Aggiusta la proporzione
+        X_train, X_val, y_train, y_val, y_train_orig, y_val_orig = train_test_split(
+            X_temp, y_temp, y_temp_orig, test_size=val_size_adjusted, random_state=random_state, stratify=None
+        )
     
     logger.info(f"Train set: {X_train.shape[0]} righe, {X_train.shape[1]} colonne")
     logger.info(f"Validation set: {X_val.shape[0]} righe, {X_val.shape[1]} colonne") 
@@ -148,7 +195,7 @@ def apply_pca(
         X_val_scaled: Feature di validation scalate (opzionale)
         X_test_scaled: Feature di test scalate (opzionale)
         X_train_columns: Nomi delle colonne originali
-        variance_threshold: Soglia di varianza da mantenere
+        variance_threshold: Soglia di varianza da mantenere (0-1) o numero di componenti (int)
         random_state: Seed per riproducibilità
         
     Returns:
@@ -156,7 +203,17 @@ def apply_pca(
     """
     logger.info(f"Applicazione PCA (varianza target: {variance_threshold})...")
     
-    pca = PCA(n_components=variance_threshold, random_state=random_state)
+    # Gestisci variance_threshold come int o float
+    if isinstance(variance_threshold, int) or variance_threshold > 1.0:
+        # Numero specifico di componenti
+        n_components = int(variance_threshold)
+        logger.info(f"PCA con {n_components} componenti fisse")
+    else:
+        # Percentuale di varianza da mantenere
+        n_components = variance_threshold
+        logger.info(f"PCA mantenendo {variance_threshold*100:.1f}% della varianza")
+    
+    pca = PCA(n_components=n_components, random_state=random_state)
     X_train_pca = pca.fit_transform(X_train_scaled)
     
     results = [X_train_pca]
@@ -170,9 +227,14 @@ def apply_pca(
         results.append(X_test_pca)
     
     explained_var = pca.explained_variance_ratio_
+    total_variance_explained = explained_var.sum()
     
     logger.info(f"PCA: {X_train_scaled.shape[1]} -> {X_train_pca.shape[1]} componenti")
-    logger.info(f"Varianza spiegata totale: {explained_var.sum():.3f} ({explained_var.sum()*100:.1f}%)")
+    logger.info(f"Varianza spiegata totale: {total_variance_explained:.3f} ({total_variance_explained*100:.1f}%)")
+    
+    # Verifica che la varianza target sia stata raggiunta
+    if isinstance(n_components, float) and total_variance_explained < variance_threshold:
+        logger.warning(f"Varianza raggiunta ({total_variance_explained:.3f}) < target ({variance_threshold:.3f})")
     
     # Test di ricostruzione per validare la qualità
     X_reconstructed = pca.inverse_transform(X_train_pca)
@@ -197,7 +259,7 @@ def apply_pca(
         logger.info(f"{pc_name} (varianza: {explained_var[i]:.3f}): {dict(top_features)}")
     
     # Grafico varianza cumulativa
-    _plot_pca_variance(explained_var, variance_threshold)
+    _plot_pca_variance(explained_var, variance_threshold if isinstance(variance_threshold, float) else None)
     
     return tuple(results)
 

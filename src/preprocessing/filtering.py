@@ -126,7 +126,7 @@ def remove_highly_correlated_numeric(
     return X_train, X_test, to_drop
 
 def filter_features(
-    df: pd.DataFrame,
+    df: pd.DataFrame = None,
     X_train: pd.DataFrame = None,
     X_val: pd.DataFrame = None,
     X_test: pd.DataFrame = None,
@@ -137,7 +137,7 @@ def filter_features(
     Applica tutti i filtri alle feature.
     
     Args:
-        df: DataFrame completo (per correlazioni categoriche)
+        df: DataFrame completo (per correlazioni categoriche, None se post-split)
         X_train: Feature di training (per correlazioni numeriche)
         X_val: Feature di validation (per correlazioni numeriche)
         X_test: Feature di test (per correlazioni numeriche)
@@ -145,27 +145,28 @@ def filter_features(
         corr_threshold: Soglia per correlazione numerica
         
     Returns:
-        Tuple con df filtrato, X_train filtrato, X_val filtrato (se presente), X_test filtrato (se presente), info filtri
+        Tuple con df filtrato (o None), X_train filtrato, X_val filtrato (se presente), X_test filtrato (se presente), info filtri
     """
     logger.info("Avvio filtri delle feature...")
     
     filter_info = {}
+    results = []
     
-    # Filtro correlazioni categoriche (su df completo)
-    df_filtered, removed_categorical = remove_highly_correlated_categorical(df, cramer_threshold)
-    filter_info['removed_categorical'] = removed_categorical
-    
-    results = [df_filtered]
+    # Filtro correlazioni categoriche (solo se df è fornito - pre-split)
+    if df is not None:
+        logger.info("Filtro correlazioni categoriche (pre-split)")
+        df_filtered, removed_categorical = remove_highly_correlated_categorical(df, cramer_threshold)
+        filter_info['removed_categorical'] = removed_categorical
+        results.append(df_filtered)
+    else:
+        logger.info("Skip filtro categorico (modalità post-split)")
+        filter_info['removed_categorical'] = []
+        results.append(None)
     
     # Filtro correlazioni numeriche (su train/val/test se forniti)
     if X_train is not None:
-        # Crea un dataset combinato per calcolare le correlazioni
-        datasets_to_filter = [X_train]
-        if X_val is not None:
-            datasets_to_filter.append(X_val)
-        if X_test is not None:
-            datasets_to_filter.append(X_test)
-            
+        logger.info("Filtro correlazioni numeriche (post-split)")
+        
         # Usa solo train e test per backwards compatibility con remove_highly_correlated_numeric
         X_train_filtered, X_test_temp, removed_numeric = remove_highly_correlated_numeric(
             X_train, X_test if X_test is not None else X_train, corr_threshold
@@ -193,9 +194,15 @@ def filter_features(
         if X_test is not None:
             shape_info += f", X_test {X_test_filtered.shape}"
             
-        logger.info(f"Filtri completati. Shape: df {df_filtered.shape}, {shape_info}")
+        if df is not None:
+            logger.info(f"Filtri completati. Shape: df {df_filtered.shape}, {shape_info}")
+        else:
+            logger.info(f"Filtri completati. Shape: {shape_info}")
     else:
-        logger.info(f"Filtri completati. Shape df: {df_filtered.shape}")
+        logger.info("Nessun set di training fornito per filtri numerici")
+        filter_info['removed_numeric'] = []
+        if df is not None:
+            logger.info(f"Filtri completati. Shape df: {df_filtered.shape}")
     
     results.append(filter_info)
     return tuple(results)
