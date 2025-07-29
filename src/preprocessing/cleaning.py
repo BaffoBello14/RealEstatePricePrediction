@@ -7,6 +7,181 @@ from ..utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+def clean_data(df: pd.DataFrame, target_column: str, config: Dict[str, Any]) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    """
+    Pulisce i dati del dataset applicando varie operazioni di cleaning.
+    
+    Args:
+        df: DataFrame da pulire
+        target_column: Nome della colonna target
+        config: Configurazione del preprocessing
+        
+    Returns:
+        Tuple con DataFrame pulito e informazioni sul cleaning
+    """
+    logger.info("Inizio pulizia dati...")
+    
+    original_shape = df.shape
+    cleaning_info = {'original_shape': original_shape}
+    
+    # 1. Sostituisce stringhe vuote con NaN
+    logger.info("Sostituzione stringhe vuote con NaN...")
+    df = df.replace('', np.nan)
+    
+    # 2. Rimuove righe dove il target è mancante
+    if target_column in df.columns:
+        target_null_count = df[target_column].isnull().sum()
+        if target_null_count > 0:
+            logger.info(f"Rimozione {target_null_count} righe con target mancante...")
+            df = df.dropna(subset=[target_column])
+            cleaning_info['target_null_removed'] = target_null_count
+    
+    # 3. Rimuove colonne completamente vuote
+    empty_cols = df.columns[df.isnull().all()].tolist()
+    if empty_cols:
+        logger.info(f"Rimozione {len(empty_cols)} colonne completamente vuote...")
+        df = df.drop(columns=empty_cols)
+        cleaning_info['empty_columns_removed'] = empty_cols
+    
+    # 4. Rimuove duplicati completi
+    duplicates = df.duplicated().sum()
+    if duplicates > 0:
+        logger.info(f"Rimozione {duplicates} righe duplicate...")
+        df = df.drop_duplicates()
+        cleaning_info['duplicates_removed'] = duplicates
+    
+    # 5. Conversione automatica di tipo per colonne numeriche
+    numeric_conversions = 0
+    for col in df.columns:
+        if col != target_column and df[col].dtype == 'object':
+            try:
+                # Prova conversione a numerico
+                df_numeric = pd.to_numeric(df[col], errors='coerce')
+                # Se non troppe perdite di dati, applica conversione
+                if df_numeric.notna().sum() > 0.8 * len(df[col]):
+                    df[col] = df_numeric
+                    numeric_conversions += 1
+            except Exception:
+                pass
+    
+    if numeric_conversions > 0:
+        logger.info(f"Convertite {numeric_conversions} colonne a tipo numerico")
+        cleaning_info['numeric_conversions'] = numeric_conversions
+    
+    final_shape = df.shape
+    cleaning_info['final_shape'] = final_shape
+    cleaning_info['rows_removed'] = original_shape[0] - final_shape[0]
+    cleaning_info['columns_removed'] = original_shape[1] - final_shape[1]
+    
+    logger.info(f"Pulizia completata: {original_shape} -> {final_shape}")
+    logger.info(f"Righe rimosse: {cleaning_info['rows_removed']}")
+    logger.info(f"Colonne rimosse: {cleaning_info['columns_removed']}")
+    
+    return df, cleaning_info
+
+def transform_target_and_detect_outliers(
+    y_train: pd.Series,
+    X_train: pd.DataFrame,
+    z_threshold: float = 3.0,
+    iqr_multiplier: float = 1.5,
+    contamination: float = 0.1,
+    min_methods: int = 2
+) -> Tuple[pd.Series, np.ndarray, Dict[str, Any]]:
+    """
+    Trasforma il target e rileva outliers usando multiple metodologie.
+    
+    Args:
+        y_train: Serie target di training
+        X_train: DataFrame features di training (per Isolation Forest)
+        z_threshold: Soglia per Z-score
+        iqr_multiplier: Moltiplicatore per IQR
+        contamination: Parametro per Isolation Forest
+        min_methods: Numero minimo di metodi che devono identificare un outlier
+        
+    Returns:
+        Tuple con target trasformato, mask outliers, info detector
+    """
+    logger.info("Trasformazione target e outlier detection...")
+    
+    # Step 1: Trasformazione logaritmica del target
+    original_skew = stats.skew(y_train)
+    y_train_log = np.log1p(y_train)
+    log_skew = stats.skew(y_train_log)
+    
+    logger.info(f"Skewness originale: {original_skew:.3f}")
+    logger.info(f"Skewness dopo log: {log_skew:.3f}")
+    
+    # Step 2: Outlier detection con multiple methods
+    outlier_votes = np.zeros(len(y_train_log))
+    outlier_methods = []
+    
+    # Metodo 1: Z-Score
+    z_scores = stats.zscore(y_train_log)
+    z_outliers = np.abs(z_scores) > z_threshold
+    outlier_votes[z_outliers] += 1
+    outlier_methods.append(('z_score', z_outliers.sum()))
+    logger.info(f"Z-Score outliers (soglia {z_threshold}): {z_outliers.sum()}")
+    
+    # Metodo 2: IQR
+    Q1 = y_train_log.quantile(0.25)
+    Q3 = y_train_log.quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - iqr_multiplier * IQR
+    upper_bound = Q3 + iqr_multiplier * IQR
+    
+    iqr_outliers = (y_train_log < lower_bound) | (y_train_log > upper_bound)
+    outlier_votes[iqr_outliers] += 1
+    outlier_methods.append(('iqr', iqr_outliers.sum()))
+    logger.info(f"IQR outliers (moltiplicatore {iqr_multiplier}): {iqr_outliers.sum()}")
+    
+    # Metodo 3: Isolation Forest (se abbastanza features numeriche)
+    numeric_features = X_train.select_dtypes(include=[np.number])
+    if numeric_features.shape[1] > 0:
+        try:
+            iso_forest = IsolationForest(
+                contamination=contamination,
+                random_state=42,
+                n_jobs=1
+            )
+            iso_outliers_pred = iso_forest.fit_predict(numeric_features)
+            iso_outliers = iso_outliers_pred == -1
+            outlier_votes[iso_outliers] += 1
+            outlier_methods.append(('isolation_forest', iso_outliers.sum()))
+            logger.info(f"Isolation Forest outliers (contamination {contamination}): {iso_outliers.sum()}")
+        except Exception as e:
+            logger.warning(f"Isolation Forest fallito: {e}")
+    
+    # Step 3: Combina i metodi
+    # Un punto è considerato outlier se identificato da almeno min_methods
+    outliers_mask = outlier_votes >= min_methods
+    total_outliers = outliers_mask.sum()
+    
+    logger.info(f"Outliers finali (min_methods={min_methods}): {total_outliers}/{len(y_train_log)} "
+               f"({total_outliers/len(y_train_log)*100:.2f}%)")
+    
+    # Informazioni detector
+    detector_info = {
+        'original_skew': float(original_skew),
+        'log_skew': float(log_skew),
+        'total_outliers': int(total_outliers),
+        'outlier_percentage': float(total_outliers/len(y_train_log)*100),
+        'methods_used': outlier_methods,
+        'parameters': {
+            'z_threshold': z_threshold,
+            'iqr_multiplier': iqr_multiplier,
+            'contamination': contamination,
+            'min_methods': min_methods
+        },
+        'target_bounds': {
+            'log_min': float(y_train_log.min()),
+            'log_max': float(y_train_log.max()),
+            'log_mean': float(y_train_log.mean()),
+            'log_std': float(y_train_log.std())
+        }
+    }
+    
+    return y_train_log, outliers_mask, detector_info
+
 def transform_target_and_detect_outliers_by_category(
     y_train: pd.Series,
     X_train: pd.DataFrame,  # Serve il DataFrame originale, non scaled
