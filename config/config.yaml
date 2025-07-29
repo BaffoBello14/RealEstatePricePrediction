@@ -9,7 +9,6 @@ database:
 paths:
   data_raw: "data/raw/"
   data_processed: "data/processed/"
-  data_interim: "data/interim/"
   models: "models/"
   logs: "logs/"
 
@@ -34,30 +33,56 @@ preprocessing:
   min_methods_outlier: 2
   
   # PCA
+  use_pca: false
   pca_variance_threshold: 0.95
   
   # Split
   test_size: 0.2
+  val_size: 0.2
+  random_state: 42
+
+# Training parametri
+training:
+  # Cross-validation
+  cv_folds: 5
+  cv_scoring: 'neg_root_mean_squared_error'
+  
+  # Optuna optimization
+  n_trials: 100
+  optuna_timeout: 7200  # 2 ore in secondi
+  optuna_pruning_percentile: 25
+  
+  # Parallelization
+  n_jobs: -1
+  
+  # Random state
   random_state: 42
 
 # Modelli da addestrare
 models:
-  linear_regression:
-    enabled: true
-    params: {}
+  # Baseline models (sempre abilitati)
+  baseline:
+    linear_regression: true
+    ridge: true
+    lasso: true
+    elastic_net: true
+    decision_tree: true
+    knn: true
+    svr: true
   
-  random_forest:
-    enabled: true
-    params:
-      n_estimators: 100
-      random_state: 42
+  # Advanced models (con ottimizzazione Optuna)
+  advanced:
+    random_forest: true
+    gradient_boosting: true
+    xgboost: true
+    catboost: true
+    lightgbm: true
+    hist_gradient_boosting: true
   
-  xgboost:
-    enabled: true
-    params:
-      n_estimators: 100
-      random_state: 42
-      learning_rate: 0.1
+  # Ensemble models
+  ensemble:
+    voting_regressor: true
+    stacking_regressor: true
 
 # Ottimizzazione iperparametri
 tuning:
@@ -69,7 +94,7 @@ tuning:
 logging:
   level: "INFO"
   format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-  file: "logs/ml_pipeline.log"
+  file: "logs/pipeline.log"
 
 # Esecuzione pipeline
 execution:
@@ -80,4 +105,4 @@ execution:
     - training
     - evaluation
   
-  force_reload: false  # Se True, rigenera tutto da capo
+  force_reload: true  # Se True, rigenera tutto da capo
