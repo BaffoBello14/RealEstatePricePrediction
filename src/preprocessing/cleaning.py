@@ -7,6 +7,105 @@ from ..utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+# =====================================================================================
+# Nuove funzioni per compatibilità con la pipeline
+# =====================================================================================
+
+
+def clean_data(df: pd.DataFrame, target_column: str, config: Dict[str, Any]) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    """Esegue una pulizia di base del *DataFrame*.
+
+    L'obiettivo principale di questa funzione è **garantire la compatibilità** con
+    la pipeline di preprocessing (`src.preprocessing.pipeline`).  Per ora si
+    adottano soltanto alcune operazioni minimali e *safe* che non alterano la
+    logica del progetto ma evitano errori di import.
+
+    Se in futuro vorrai arricchire la logica di pulizia (es. gestione valori
+    mancanti, rimozione di righe/colonne anomale, normalizzazione dei campi
+    stringa, ecc.) questo è il punto d'ingresso da estendere.
+
+    Args:
+        df: DataFrame sorgente.
+        target_column: Nome della colonna target (necessario solo per eventuali
+            controlli futuri; al momento non viene utilizzato).
+        config: Dizionario di configurazione passato dalla pipeline principale.
+
+    Returns:
+        Tuple contenente:
+            1. Il *DataFrame* (eventualmente) pulito.
+            2. Un dizionario `cleaning_info` con un breve riepilogo delle
+               operazioni effettuate, utile per il logging a valle.
+    """
+    logger.info("Esecuzione clean_data – versione minima di compatibilità.")
+
+    # Snapshot stato iniziale
+    initial_shape = df.shape
+
+    # 1. Rimozione dei duplicati (operazione sicura)
+    df_clean = df.drop_duplicates().copy()
+
+    # 2. (Placeholder) Ulteriori step di pulizia possono essere aggiunti qui
+    #    usando le impostazioni contenute in `config`.
+
+    final_shape = df_clean.shape
+
+    cleaning_info = {
+        "rows_before": initial_shape[0],
+        "rows_after": final_shape[0],
+        "cols_before": initial_shape[1],
+        "cols_after": final_shape[1],
+        "duplicates_removed": initial_shape[0] - final_shape[0],
+        "notes": "Pulizia minima: rimossi solo i duplicati."
+    }
+
+    logger.info(
+        f"Pulizia completata – righe prima/after: {initial_shape[0]}/{final_shape[0]} | "
+        f"colonne: {initial_shape[1]}"
+    )
+
+    return df_clean, cleaning_info
+
+
+# Alias / wrapper per retro-compatibilità con la pipeline attuale
+
+def transform_target_and_detect_outliers(
+    y_train: pd.Series,
+    X_train: pd.DataFrame,
+    *,
+    category_column: str = "AI_IdCategoriaCatastale",
+    z_threshold: float = 3.0,
+    iqr_multiplier: float = 1.5,
+    contamination: float = 0.05,
+    min_methods: int = 2,
+    min_samples_per_category: int = 30,
+) -> Tuple[pd.Series, np.ndarray, Dict[str, Any]]:
+    """Wrapper che rimappa all'implementazione *by_category* esistente.
+
+    La funzione originale `transform_target_and_detect_outliers_by_category` è
+    più flessibile in quanto permette di specificare la colonna di categoria e
+    gestisce internamente la log-trasformazione del target e la ricerca degli
+    outlier con diversi metodi.
+
+    Questa semplice *facade* consente di mantenere invariata la signature
+    utilizzata da `src.preprocessing.pipeline` senza duplicare la logica.
+    """
+
+    logger.debug(
+        "Invocazione wrapper transform_target_and_detect_outliers → _by_category"
+    )
+
+    return transform_target_and_detect_outliers_by_category(
+        y_train=y_train,
+        X_train=X_train,
+        category_column=category_column,
+        z_threshold=z_threshold,
+        iqr_multiplier=iqr_multiplier,
+        contamination=contamination,
+        min_methods=min_methods,
+        min_samples_per_category=min_samples_per_category,
+    )
+
+
 def transform_target_and_detect_outliers_by_category(
     y_train: pd.Series,
     X_train: pd.DataFrame,  # Serve il DataFrame originale, non scaled
