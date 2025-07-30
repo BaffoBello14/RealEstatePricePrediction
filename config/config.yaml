@@ -16,6 +16,36 @@ target:
 
 # Preprocessing parametri
 preprocessing:
+  # ==========================================
+  # CONTROLLO STEP ABILITAZIONE/DISABILITAZIONE
+  # ==========================================
+  steps:
+    enable_specific_columns_removal: true
+    enable_constant_columns_removal: true
+    enable_cramers_analysis: true  
+    enable_auto_numeric_conversion: true
+    enable_correlation_removal: true
+    enable_advanced_encoding: true
+    enable_feature_scaling: true
+    enable_log_transformation: true
+    enable_outlier_detection: true
+    enable_pca: false
+  
+  # ==========================================
+  # CONFIGURAZIONI PULIZIA DATI
+  # ==========================================
+  # Colonne specifiche da rimuovere (non conoscibili a priori)
+  columns_to_remove: ['A_Id', 'A_Codice', 'A_Prezzo', 'AI_Id']
+  
+  # Soglia per rimozione colonne costanti (% di valori uguali)
+  constant_column_threshold: 0.95
+  
+  # Soglia per conversione automatica a numerico (% di conversioni valide)
+  auto_numeric_threshold: 0.8
+  
+  # ==========================================
+  # CONFIGURAZIONI CORRELAZIONI E FILTERING
+  # ==========================================
   # Temporal split per evitare data leakage temporale
   use_temporal_split: true
   date_column: "A_AnnoStipula"  # Colonna data per split temporale
@@ -24,10 +54,16 @@ preprocessing:
   cramer_threshold: 0.95
   corr_threshold: 0.95
   
+  # ==========================================
+  # CONFIGURAZIONI ENCODING
+  # ==========================================
   # Encoding
   low_cardinality_threshold: 10
   high_cardinality_max: 100
   
+  # ==========================================
+  # CONFIGURAZIONI OUTLIER DETECTION
+  # ==========================================
   # Outliers - MIGLIORATO: Stratificazione per categoria
   outlier_strategy: "category_stratified"  # "global" | "category_stratified"
   category_column: "AI_IdCategoriaCatastale"  # Colonna per stratificazione
@@ -45,10 +81,16 @@ preprocessing:
   global_iqr_multiplier: 1.5
   global_isolation_contamination: 0.1
   
+  # ==========================================
+  # CONFIGURAZIONI PCA
+  # ==========================================
   # PCA - CORRETTA gestione variance threshold
   use_pca: false
   pca_variance_threshold: 0.95  # 0-1 per % varianza, >1 per num componenti fisso
   
+  # ==========================================
+  # CONFIGURAZIONI SPLIT
+  # ==========================================
   # Split
   test_size: 0.2
   val_size: 0.2

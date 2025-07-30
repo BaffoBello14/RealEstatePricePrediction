@@ -292,6 +292,147 @@ def _plot_pca_variance(explained_var: np.ndarray, variance_threshold: float) -> 
     plt.legend()
     plt.show()
 
+def apply_feature_scaling(
+    X_train: pd.DataFrame,
+    X_val: pd.DataFrame = None,
+    X_test: pd.DataFrame = None
+) -> Tuple:
+    """
+    Applica solo feature scaling senza PCA.
+    
+    Args:
+        X_train: Feature di training
+        X_val: Feature di validation (opzionale)
+        X_test: Feature di test (opzionale)
+        
+    Returns:
+        Tuple con X_train_scaled, X_val_scaled (se presente), X_test_scaled (se presente), scaler_info
+    """
+    logger.info("Applicazione feature scaling...")
+    
+    # Usa la funzione scale_features esistente
+    scaling_results = scale_features(X_train, X_val, X_test)
+    scaler = scaling_results[-1]  # L'ultimo elemento è sempre il scaler
+    
+    # Converte array numpy in DataFrame per mantenere i nomi delle colonne
+    X_train_scaled = pd.DataFrame(
+        scaling_results[0], 
+        columns=X_train.columns,
+        index=X_train.index
+    )
+    
+    results = [X_train_scaled]
+    
+    if X_val is not None:
+        X_val_scaled = pd.DataFrame(
+            scaling_results[1], 
+            columns=X_val.columns,
+            index=X_val.index
+        )
+        results.append(X_val_scaled)
+    
+    if X_test is not None:
+        X_test_scaled = pd.DataFrame(
+            scaling_results[2], 
+            columns=X_test.columns,
+            index=X_test.index
+        )
+        results.append(X_test_scaled)
+    
+    # Informazioni sul scaling
+    scaling_info = {
+        'scaler': scaler,
+        'original_features': X_train.shape[1],
+        'scaled_features': X_train.shape[1],
+        'feature_means': dict(zip(X_train.columns, scaler.mean_)),
+        'feature_scales': dict(zip(X_train.columns, scaler.scale_))
+    }
+    
+    logger.info(f"Feature scaling completato: {X_train.shape[1]} features scalate")
+    
+    # Restituisci i dati scalati + info
+    return tuple(results) + (scaling_info,)
+
+def apply_pca_transformation(
+    X_train_scaled: pd.DataFrame,
+    X_val_scaled: pd.DataFrame = None,
+    X_test_scaled: pd.DataFrame = None,
+    variance_threshold: float = 0.95,
+    random_state: int = 42
+) -> Tuple:
+    """
+    Applica solo PCA su dati già scalati.
+    
+    Args:
+        X_train_scaled: Feature di training già scalate
+        X_val_scaled: Feature di validation già scalate (opzionale)
+        X_test_scaled: Feature di test già scalate (opzionale)
+        variance_threshold: Soglia varianza per PCA
+        random_state: Seed per riproducibilità
+        
+    Returns:
+        Tuple con X_train_pca, X_val_pca (se presente), X_test_pca (se presente), pca_info
+    """
+    logger.info(f"Applicazione PCA (varianza target: {variance_threshold})...")
+    
+    # Usa la funzione apply_pca esistente
+    pca_results = apply_pca(
+        X_train_scaled.values,  # Converte a numpy array
+        X_val_scaled.values if X_val_scaled is not None else None,
+        X_test_scaled.values if X_test_scaled is not None else None,
+        X_train_columns=X_train_scaled.columns, 
+        variance_threshold=variance_threshold, 
+        random_state=random_state
+    )
+    
+    pca_model = pca_results[-2]  # Penultimo elemento è il modello PCA
+    loadings = pca_results[-1]   # Ultimo elemento sono i loadings
+    
+    # Converte i risultati in DataFrame con nomi delle componenti principali
+    component_names = [f'PC{i+1}' for i in range(pca_model.n_components_)]
+    
+    X_train_pca = pd.DataFrame(
+        pca_results[0], 
+        columns=component_names,
+        index=X_train_scaled.index
+    )
+    
+    results = [X_train_pca]
+    
+    if X_val_scaled is not None:
+        X_val_pca = pd.DataFrame(
+            pca_results[1], 
+            columns=component_names,
+            index=X_val_scaled.index
+        )
+        results.append(X_val_pca)
+    
+    if X_test_scaled is not None:
+        result_idx = 2 if X_val_scaled is not None else 1
+        X_test_pca = pd.DataFrame(
+            pca_results[result_idx], 
+            columns=component_names,
+            index=X_test_scaled.index
+        )
+        results.append(X_test_pca)
+    
+    # Informazioni sulla PCA
+    pca_info = {
+        'pca_model': pca_model,
+        'loadings': loadings,
+        'original_features': X_train_scaled.shape[1],
+        'pca_components': pca_model.n_components_,
+        'variance_explained': pca_model.explained_variance_ratio_.sum(),
+        'variance_explained_per_component': pca_model.explained_variance_ratio_.tolist(),
+        'component_names': component_names
+    }
+    
+    logger.info(f"PCA completata: {X_train_scaled.shape[1]} -> {pca_model.n_components_} componenti")
+    logger.info(f"Varianza preservata: {pca_info['variance_explained']:.3f}")
+    
+    # Restituisci i dati trasformati + info
+    return tuple(results) + (pca_info,)
+
 def apply_transformations(
     X_train: pd.DataFrame,
     X_val: pd.DataFrame = None,

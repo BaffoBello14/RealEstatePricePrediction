@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from scipy.stats import chi2_contingency
-from typing import Tuple, List
+from typing import Tuple, List, Dict, Any
 from ..utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -33,6 +33,90 @@ def cramers_v(x: pd.Series, y: pd.Series) -> float:
     kcorr = k - ((k-1)**2)/(n-1)
     denom = min((kcorr-1), (rcorr-1))
     return np.sqrt(phi2corr / denom) if denom > 0 else np.nan
+
+def analyze_cramers_correlations(df: pd.DataFrame, target_column: str, threshold: float = 0.95) -> Dict[str, Any]:
+    """
+    Analizza le correlazioni Cramér's V tra variabili categoriche SENZA rimuovere colonne.
+    Questa funzione può essere usata prima dello split per identificare potenziali problemi.
+    
+    Args:
+        df: DataFrame con le variabili
+        target_column: Nome della colonna target (da escludere dall'analisi)
+        threshold: Soglia di correlazione per identificare correlazioni elevate
+        
+    Returns:
+        Dictionary con informazioni sulle correlazioni trovate
+    """
+    logger.info(f"Analisi correlazioni Cramér's V (soglia: {threshold})...")
+    
+    # Seleziona categoriche "vere" escludendo il target
+    cat_cols = df.select_dtypes(include='object').columns
+    cat_cols = [col for col in cat_cols if col != target_column and df[col].nunique() > 1]
+    
+    analysis_info = {
+        'threshold_used': threshold,
+        'categorical_columns_analyzed': cat_cols,
+        'high_correlations': [],
+        'correlation_matrix': {},
+        'recommended_removals': []
+    }
+    
+    if len(cat_cols) < 2:
+        logger.info("Meno di 2 variabili categoriche, skip analisi correlazione")
+        return analysis_info
+    
+    logger.info(f"Analisi correlazione su {len(cat_cols)} variabili categoriche")
+    
+    # Calcola matrice Cramér's V
+    cramer_matrix = pd.DataFrame(index=cat_cols, columns=cat_cols, dtype=float)
+    
+    for col1 in cat_cols:
+        for col2 in cat_cols:
+            if col1 == col2:
+                cramer_matrix.loc[col1, col2] = 1.0
+            elif pd.isna(cramer_matrix.loc[col1, col2]):
+                value = cramers_v(df[col1], df[col2])
+                cramer_matrix.loc[col1, col2] = value
+                cramer_matrix.loc[col2, col1] = value
+    
+    analysis_info['correlation_matrix'] = cramer_matrix.to_dict()
+    
+    # Identifica correlazioni elevate
+    high_correlations = []
+    potential_removals = set()
+    
+    for col in cramer_matrix.columns:
+        high_corr_cols = cramer_matrix[col][
+            (cramer_matrix[col] > threshold) & (cramer_matrix[col] < 1.0)
+        ].index.tolist()
+        
+        for other_col in high_corr_cols:
+            if col < other_col:  # Evita duplicati (A,B) e (B,A)
+                correlation_value = cramer_matrix.loc[col, other_col]
+                high_correlations.append({
+                    'column1': col,
+                    'column2': other_col,
+                    'cramers_v': correlation_value
+                })
+                
+                # Suggerisci rimozione della colonna con meno valori unici
+                if df[col].nunique() <= df[other_col].nunique():
+                    potential_removals.add(col)
+                else:
+                    potential_removals.add(other_col)
+    
+    analysis_info['high_correlations'] = high_correlations
+    analysis_info['recommended_removals'] = list(potential_removals)
+    
+    if high_correlations:
+        logger.info(f"Trovate {len(high_correlations)} correlazioni elevate:")
+        for corr in high_correlations:
+            logger.info(f"  {corr['column1']} <-> {corr['column2']}: {corr['cramers_v']:.3f}")
+        logger.info(f"Colonne consigliate per rimozione: {analysis_info['recommended_removals']}")
+    else:
+        logger.info("Nessuna correlazione elevata trovata")
+    
+    return analysis_info
 
 def remove_highly_correlated_categorical(df: pd.DataFrame, threshold: float = 0.95) -> Tuple[pd.DataFrame, List[str]]:
     """

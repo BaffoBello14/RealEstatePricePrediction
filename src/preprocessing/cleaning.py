@@ -7,6 +7,168 @@ from ..utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+def remove_specific_columns(df: pd.DataFrame, columns_to_remove: List[str]) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    """
+    Rimuove colonne specifiche dal DataFrame.
+    
+    Args:
+        df: DataFrame da cui rimuovere le colonne
+        columns_to_remove: Lista di nomi di colonne da rimuovere
+        
+    Returns:
+        Tuple con DataFrame pulito e informazioni sulle colonne rimosse
+    """
+    logger.info(f"Rimozione colonne specifiche: {columns_to_remove}")
+    
+    # Trova colonne che esistono effettivamente nel DataFrame
+    existing_columns = [col for col in columns_to_remove if col in df.columns]
+    missing_columns = [col for col in columns_to_remove if col not in df.columns]
+    
+    removal_info = {
+        'requested_columns': columns_to_remove,
+        'existing_columns': existing_columns,
+        'missing_columns': missing_columns,
+        'columns_removed_count': len(existing_columns)
+    }
+    
+    if existing_columns:
+        df = df.drop(columns=existing_columns)
+        logger.info(f"Rimosse {len(existing_columns)} colonne: {existing_columns}")
+    else:
+        logger.info("Nessuna colonna specifica da rimuovere trovata nel DataFrame")
+    
+    if missing_columns:
+        logger.warning(f"Colonne richieste ma non trovate: {missing_columns}")
+    
+    return df, removal_info
+
+def remove_constant_columns(df: pd.DataFrame, target_column: str, threshold: float = 0.95) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    """
+    Rimuove colonne che sono quasi costanti (sopra una certa soglia di valori uguali).
+    
+    Args:
+        df: DataFrame da cui rimuovere le colonne costanti
+        target_column: Nome della colonna target (da non rimuovere)
+        threshold: Soglia per considerare una colonna costante (% di valori uguali)
+        
+    Returns:
+        Tuple con DataFrame pulito e informazioni sulle colonne rimosse
+    """
+    logger.info(f"Rimozione colonne costanti (soglia: {threshold})...")
+    
+    constant_columns = []
+    column_stats = {}
+    
+    for col in df.columns:
+        if col == target_column:
+            continue
+            
+        # Calcola la percentuale del valore più frequente
+        value_counts = df[col].value_counts(normalize=True, dropna=False)
+        if len(value_counts) > 0:
+            max_frequency = value_counts.iloc[0]
+            column_stats[col] = {
+                'max_frequency': max_frequency,
+                'unique_values': len(value_counts),
+                'most_common_value': value_counts.index[0]
+            }
+            
+            if max_frequency >= threshold:
+                constant_columns.append(col)
+    
+    removal_info = {
+        'threshold_used': threshold,
+        'constant_columns': constant_columns,
+        'columns_removed_count': len(constant_columns),
+        'column_stats': column_stats
+    }
+    
+    if constant_columns:
+        df = df.drop(columns=constant_columns)
+        logger.info(f"Rimosse {len(constant_columns)} colonne costanti: {constant_columns}")
+        
+        # Log delle statistiche per le colonne rimosse
+        for col in constant_columns:
+            stats = column_stats[col]
+            logger.info(f"  {col}: {stats['max_frequency']:.3f} frequenza, "
+                       f"{stats['unique_values']} valori unici, "
+                       f"valore dominante: {stats['most_common_value']}")
+    else:
+        logger.info("Nessuna colonna costante trovata")
+    
+    return df, removal_info
+
+def convert_to_numeric(df: pd.DataFrame, target_column: str, threshold: float = 0.8) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    """
+    Converte automaticamente colonne a tipo numerico quando possibile.
+    
+    Args:
+        df: DataFrame da processare
+        target_column: Nome della colonna target (da non toccare)
+        threshold: Soglia minima di conversioni valide per applicare la conversione
+        
+    Returns:
+        Tuple con DataFrame convertito e informazioni sulle conversioni
+    """
+    logger.info(f"Conversione automatica a numerico (soglia: {threshold})...")
+    
+    conversion_info = {
+        'threshold_used': threshold,
+        'converted_columns': [],
+        'failed_conversions': [],
+        'conversion_stats': {}
+    }
+    
+    numeric_conversions = 0
+    
+    for col in df.columns:
+        if col == target_column or df[col].dtype != 'object':
+            continue
+            
+        try:
+            # Prova conversione a numerico
+            original_count = len(df[col])
+            non_null_count = df[col].notna().sum()
+            
+            if non_null_count == 0:
+                continue
+                
+            df_numeric = pd.to_numeric(df[col], errors='coerce')
+            valid_conversions = df_numeric.notna().sum()
+            conversion_rate = valid_conversions / non_null_count
+            
+            conversion_stats = {
+                'original_non_null': non_null_count,
+                'valid_conversions': valid_conversions,
+                'conversion_rate': conversion_rate,
+                'original_dtype': str(df[col].dtype)
+            }
+            
+            conversion_info['conversion_stats'][col] = conversion_stats
+            
+            # Se tasso di conversione sopra soglia, applica conversione
+            if conversion_rate >= threshold:
+                df[col] = df_numeric
+                conversion_info['converted_columns'].append(col)
+                numeric_conversions += 1
+                logger.info(f"  {col}: convertita a numerico ({conversion_rate:.3f} tasso successo)")
+            else:
+                conversion_info['failed_conversions'].append(col)
+                logger.info(f"  {col}: conversione skippata ({conversion_rate:.3f} tasso successo < {threshold})")
+                
+        except Exception as e:
+            conversion_info['failed_conversions'].append(col)
+            logger.warning(f"  {col}: errore nella conversione - {str(e)}")
+    
+    conversion_info['total_converted'] = numeric_conversions
+    
+    if numeric_conversions > 0:
+        logger.info(f"Convertite {numeric_conversions} colonne a tipo numerico")
+    else:
+        logger.info("Nessuna colonna convertita a numerico")
+    
+    return df, conversion_info
+
 def clean_data(df: pd.DataFrame, target_column: str, config: Dict[str, Any]) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """
     Pulisce i dati del dataset applicando varie operazioni di cleaning.
@@ -28,7 +190,21 @@ def clean_data(df: pd.DataFrame, target_column: str, config: Dict[str, Any]) -> 
     logger.info("Sostituzione stringhe vuote con NaN...")
     df = df.replace('', np.nan)
     
-    # 2. Rimuove righe dove il target è mancante
+    # 2. Rimuove colonne specifiche (se abilitato)
+    steps_config = config.get('steps', {})
+    if steps_config.get('enable_specific_columns_removal', True):
+        columns_to_remove = config.get('columns_to_remove', [])
+        if columns_to_remove:
+            df, specific_removal_info = remove_specific_columns(df, columns_to_remove)
+            cleaning_info['specific_columns_removal'] = specific_removal_info
+    
+    # 3. Rimuove colonne costanti (se abilitato)
+    if steps_config.get('enable_constant_columns_removal', True):
+        constant_threshold = config.get('constant_column_threshold', 0.95)
+        df, constant_removal_info = remove_constant_columns(df, target_column, constant_threshold)
+        cleaning_info['constant_columns_removal'] = constant_removal_info
+    
+    # 4. Rimuove righe dove il target è mancante
     if target_column in df.columns:
         target_null_count = df[target_column].isnull().sum()
         if target_null_count > 0:
@@ -36,37 +212,19 @@ def clean_data(df: pd.DataFrame, target_column: str, config: Dict[str, Any]) -> 
             df = df.dropna(subset=[target_column])
             cleaning_info['target_null_removed'] = target_null_count
     
-    # 3. Rimuove colonne completamente vuote
+    # 5. Rimuove colonne completamente vuote
     empty_cols = df.columns[df.isnull().all()].tolist()
     if empty_cols:
         logger.info(f"Rimozione {len(empty_cols)} colonne completamente vuote...")
         df = df.drop(columns=empty_cols)
         cleaning_info['empty_columns_removed'] = empty_cols
     
-    # 4. Rimuove duplicati completi
+    # 6. Rimuove duplicati completi
     duplicates = df.duplicated().sum()
     if duplicates > 0:
         logger.info(f"Rimozione {duplicates} righe duplicate...")
         df = df.drop_duplicates()
         cleaning_info['duplicates_removed'] = duplicates
-    
-    # 5. Conversione automatica di tipo per colonne numeriche
-    numeric_conversions = 0
-    for col in df.columns:
-        if col != target_column and df[col].dtype == 'object':
-            try:
-                # Prova conversione a numerico
-                df_numeric = pd.to_numeric(df[col], errors='coerce')
-                # Se non troppe perdite di dati, applica conversione
-                if df_numeric.notna().sum() > 0.8 * len(df[col]):
-                    df[col] = df_numeric
-                    numeric_conversions += 1
-            except Exception:
-                pass
-    
-    if numeric_conversions > 0:
-        logger.info(f"Convertite {numeric_conversions} colonne a tipo numerico")
-        cleaning_info['numeric_conversions'] = numeric_conversions
     
     final_shape = df.shape
     cleaning_info['final_shape'] = final_shape
