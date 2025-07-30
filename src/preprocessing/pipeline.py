@@ -25,21 +25,6 @@ def run_preprocessing_pipeline(
     """
     Esegue la pipeline completa di preprocessing con la nuova sequenza ottimizzata.
     
-    Sequenza step:
-    1. Caricamento dati
-    2. Pulizia dati: rimozione colonne specifiche + costanti
-    3. Calcolo Cramer per categoriche (analisi, non rimozione)
-    4. Conversione automatica a numerico 
-    5. Encoding categoriche di base (senza target encoding)
-    6. Imputazione valori nulli
-    7. Rimozione feature altamente correlate
-    8. Split train/test/val
-    9. Encoding categoriche avanzato (target encoding post-split)
-    10. Feature scaling (solo su train)
-    11. Trasformazione log + outlier detection (solo su train)
-    12. PCA (solo su train)
-    13. Salvataggi
-    
     Args:
         dataset_path: Path al dataset da processare
         target_column: Nome della colonna target
