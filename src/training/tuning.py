@@ -97,9 +97,16 @@ def optimize_model(model_name: str, X_train, y_train, config: Dict[str, Any]) ->
             interval_steps=5
         )
         
+        # Prova a utilizzare AutoSampler, se fallisce usa TPESampler
+        try:
+            sampler = optunahub.load("samplers/auto_sampler").AutoSampler()
+        except Exception as e:
+            logger.warning(f"AutoSampler non disponibile ({e}), usando TPESampler")
+            sampler = optuna.samplers.TPESampler(seed=42)
+        
         study = optuna.create_study(
             direction='minimize',
-            sampler=module.AutoSampler(),
+            sampler=sampler,
             pruner=pruner,
             study_name=f"{model_name}_optimization"
         )

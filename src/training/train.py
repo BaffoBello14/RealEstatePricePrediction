@@ -100,6 +100,19 @@ def evaluate_single_model(model, X_train, y_train, X_val, y_val, model_name: str
         train_mape = mean_absolute_percentage_error(y_train, y_pred_train) * 100
         val_mape = mean_absolute_percentage_error(y_val, y_pred_val) * 100
         
+        # Calcola overfit ratio e controlli di qualità
+        overfit_ratio = val_rmse / train_rmse if train_rmse > 0 else float('inf')
+        
+        # Warning per overfitting severo
+        if overfit_ratio > 2.0:
+            logger.warning(f"⚠️  {model_name}: Possibile overfitting severo (ratio: {overfit_ratio:.3f})")
+        elif overfit_ratio > 1.5:
+            logger.warning(f"⚠️  {model_name}: Overfitting moderato (ratio: {overfit_ratio:.3f})")
+        
+        # Warning per performance molto bassa
+        if val_r2 < -0.5:
+            logger.warning(f"⚠️  {model_name}: R² molto basso ({val_r2:.4f}) - controllare preprocessing")
+        
         results = {
             'model_name': model_name,
             'model': model,
@@ -112,7 +125,7 @@ def evaluate_single_model(model, X_train, y_train, X_val, y_val, model_name: str
             'val_mae': val_mae,
             'train_mape': train_mape,
             'val_mape': val_mape,
-            'overfit_ratio': val_rmse / train_rmse if train_rmse > 0 else float('inf'),
+            'overfit_ratio': overfit_ratio,
             'predictions_train': y_pred_train,
             'predictions_val': y_pred_val
         }

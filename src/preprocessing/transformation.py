@@ -105,10 +105,19 @@ def split_dataset_with_validation(
     logger.info(f"Validation set: {X_val.shape[0]} righe, {X_val.shape[1]} colonne") 
     logger.info(f"Test set: {X_test.shape[0]} righe, {X_test.shape[1]} colonne")
     
-    # Log delle statistiche sui target
-    logger.info(f"Target log - Train: μ={y_train.mean():.3f}, σ={y_train.std():.3f}")
-    logger.info(f"Target log - Val: μ={y_val.mean():.3f}, σ={y_val.std():.3f}")
-    logger.info(f"Target log - Test: μ={y_test.mean():.3f}, σ={y_test.std():.3f}")
+    # Log delle statistiche sui target ORIGINALI (prima della trasformazione log)
+    logger.info(f"Target originale - Train: μ={y_train.mean():.3f}, σ={y_train.std():.3f}")
+    logger.info(f"Target originale - Val: μ={y_val.mean():.3f}, σ={y_val.std():.3f}")
+    logger.info(f"Target originale - Test: μ={y_test.mean():.3f}, σ={y_test.std():.3f}")
+    
+    # Verifica coerenza distribuzioni tra split
+    train_mean, val_mean, test_mean = y_train.mean(), y_val.mean(), y_test.mean()
+    max_drift = max(abs(val_mean - train_mean), abs(test_mean - train_mean)) / train_mean
+    
+    if max_drift > 0.1:  # 10% di drift
+        logger.warning(f"⚠️  Drift significativo nella distribuzione target: {max_drift:.3f}")
+    else:
+        logger.info(f"✓ Distribuzione target coerente tra split (drift: {max_drift:.3f})")
     
     return X_train, X_val, X_test, y_train, y_val, y_test, y_train_orig, y_val_orig, y_test_orig
 

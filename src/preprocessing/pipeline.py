@@ -163,9 +163,13 @@ def run_preprocessing_pipeline(
             X_test_transformed,
             columns=feature_columns
         )
+        # Applica la stessa trasformazione logaritmica a validation e test
+        y_val_log = np.log1p(y_val)
+        y_test_log = np.log1p(y_test)
+        
         y_train_df = pd.DataFrame({'target_log': y_train_clean})
-        y_val_df = pd.DataFrame({'target_log': y_val})
-        y_test_df = pd.DataFrame({'target_log': y_test})
+        y_val_df = pd.DataFrame({'target_log': y_val_log})
+        y_test_df = pd.DataFrame({'target_log': y_test_log})
         
         # Target in scala originale per evaluation
         y_val_orig_df = pd.DataFrame({'target_original': y_val_orig})

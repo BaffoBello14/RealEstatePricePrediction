@@ -88,7 +88,7 @@ def objective_gradient_boosting(trial, X_train, y_train, cv_folds=5, random_stat
     return -scores.mean()
 
 def objective_xgboost(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1, cv_strategy=None):
-    """Funzione obiettivo per XGBoost"""
+    """Funzione obiettivo per XGBoost con early stopping"""
     params = {
         'n_estimators': trial.suggest_int('n_estimators', 100, 1000, step=50),
         'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, log=True),
@@ -99,9 +99,11 @@ def objective_xgboost(trial, X_train, y_train, cv_folds=5, random_state=42, n_jo
         'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
         'reg_alpha': trial.suggest_float('reg_alpha', 0, 10),
         'reg_lambda': trial.suggest_float('reg_lambda', 0, 10),
+        'early_stopping_rounds': 50,  # Early stopping per evitare overfitting
         'random_state': random_state,
         'n_jobs': n_jobs,
-        'verbosity': 0
+        'verbosity': 0,
+        'eval_metric': 'rmse'
     }
     
     model = xgb.XGBRegressor(**params)
@@ -123,6 +125,7 @@ def objective_catboost(trial, X_train, y_train, cv_folds=5, random_state=42, n_j
         'depth': trial.suggest_int('depth', 4, 10),
         'l2_leaf_reg': trial.suggest_float('l2_leaf_reg', 1, 10),
         'bootstrap_type': trial.suggest_categorical('bootstrap_type', ['Bayesian', 'Bernoulli', 'MVS']),
+        'early_stopping_rounds': 50,  # Early stopping per evitare overfitting
         'random_seed': random_state,
         'verbose': False,
         'thread_count': n_jobs if n_jobs > 0 else None
