@@ -18,7 +18,7 @@ target:
 preprocessing:
   # Temporal split per evitare data leakage temporale
   use_temporal_split: true
-  date_column: "A_DataStipula"  # Colonna data per split temporale
+  date_column: "A_AnnoStipula"  # Colonna data per split temporale
   
   # Soglie correlazione
   cramer_threshold: 0.95
@@ -123,7 +123,7 @@ execution:
     - training
     - evaluation
   
-  force_reload: false  # Cambiato da true per evitare reload continuo
+  force_reload: true  # Cambiato da true per evitare reload continuo
 
 # Validation e monitoring
 validation:

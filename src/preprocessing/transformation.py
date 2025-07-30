@@ -16,7 +16,7 @@ def split_dataset_with_validation(
     val_size: float = 0.18,
     random_state: int = 42,
     use_temporal_split: bool = True,
-    date_column: str = 'A_DataStipula'
+    date_column: str = 'A_AnnoStipula'
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.Series, pd.Series, pd.Series, pd.Series, pd.Series, pd.Series]:
     """
     Divide il dataset in train, validation e test.

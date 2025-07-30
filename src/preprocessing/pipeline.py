@@ -67,7 +67,7 @@ def run_preprocessing_pipeline(
             val_size=config.get('val_size', 0.2),
             random_state=config.get('random_state', 42),
             use_temporal_split=config.get('use_temporal_split', True),
-            date_column=config.get('date_column', 'A_DataStipula')
+            date_column=config.get('date_column', 'A_AnnoStipula')
         )
         
         # 6. Target encoding SOLO sui dati di training (post-split)
