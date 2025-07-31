@@ -13,81 +13,46 @@ from ..utils.io import load_dataframe, save_json, save_dataframe
 
 logger = get_logger(__name__)
 
-def calculate_feature_importance(best_models: Dict[str, Any], feature_cols: List[str]) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def calculate_feature_importance(
+    best_models: Dict[str, Any], 
+    feature_cols: List[str],
+    X_train: pd.DataFrame = None,
+    X_test: pd.DataFrame = None,
+    y_test: pd.Series = None,
+    output_dir: str = None,
+    use_advanced_analysis: bool = True
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Calcola feature importance per i migliori modelli.
+    DEPRECATED: Usa run_comprehensive_feature_analysis per analisi completa.
     
     Args:
         best_models: Dictionary con i migliori modelli
         feature_cols: Lista delle colonne features
+        X_train: Training features (per SHAP)
+        X_test: Test features (per SHAP e permutation)
+        y_test: Test target (per permutation)
+        output_dir: Directory per salvare plot
+        use_advanced_analysis: Se usare analisi avanzata con SHAP
         
     Returns:
         Tuple con DataFrame feature importance e summary
     """
-    logger.info("=" * 60)
-    logger.info("ANALISI FEATURE IMPORTANCE")
-    logger.info("=" * 60)
+    from .feature_importance import run_comprehensive_feature_analysis, calculate_basic_feature_importance
     
-    feature_importance_data = []
-    feature_importance_summary = pd.DataFrame(index=feature_cols)
-    
-    for model_key, model_data in best_models.items():
-        model_name = model_data['name']
-        model = model_data['model']
+    if use_advanced_analysis and X_train is not None and X_test is not None and y_test is not None and output_dir is not None:
+        logger.info("Usando analisi feature importance avanzata...")
+        global_summary, detailed_results = run_comprehensive_feature_analysis(
+            best_models, X_train, X_test, y_test, feature_cols, output_dir
+        )
         
-        try:
-            # Diversi metodi per ottenere feature importance
-            importance = None
-            method = "unknown"
-            
-            if hasattr(model, 'feature_importances_'):
-                importance = model.feature_importances_
-                method = "feature_importances_"
-            elif hasattr(model, 'coef_'):
-                importance = np.abs(model.coef_)
-                method = "abs(coef_)"
-            
-            if importance is not None:
-                # Normalizza importanze
-                importance_norm = importance / importance.sum()
-                
-                # Aggiungi ai dati
-                for i, (feature, imp) in enumerate(zip(feature_cols, importance_norm)):
-                    feature_importance_data.append({
-                        'Model': model_name,
-                        'Feature': feature,
-                        'Importance': imp,
-                        'Rank': i + 1,
-                        'Method': method
-                    })
-                
-                # Aggiungi al summary
-                feature_importance_summary[model_name] = importance_norm
-                
-                logger.info(f"✓ Feature importance calcolata per {model_name} ({method})")
-                
-                # Top 10 features per questo modello
-                top_features = sorted(zip(feature_cols, importance_norm), key=lambda x: x[1], reverse=True)[:10]
-                logger.info(f"Top 10 features per {model_name}:")
-                for i, (feature, imp) in enumerate(top_features, 1):
-                    logger.info(f"  {i:2d}. {feature}: {imp:.4f}")
-                
-        except Exception as e:
-            logger.error(f"✗ Errore calcolo feature importance per {model_name}: {str(e)}")
-    
-    # Crea DataFrame completo
-    df_feature_importance = pd.DataFrame(feature_importance_data)
-    
-    # Calcola importanza media attraverso tutti i modelli
-    if not df_feature_importance.empty:
-        avg_importance = df_feature_importance.groupby('Feature')['Importance'].mean().sort_values(ascending=False)
-        feature_importance_summary['Average'] = avg_importance
+        # Estrai DataFrame base per compatibilità
+        df_basic, summary_basic = calculate_basic_feature_importance(best_models, feature_cols)
         
-        logger.info("\nTop 15 features (media tra tutti i modelli):")
-        for i, (feature, imp) in enumerate(avg_importance.head(15).items(), 1):
-            logger.info(f"  {i:2d}. {feature}: {imp:.4f}")
-    
-    return df_feature_importance, feature_importance_summary
+        return df_basic, global_summary
+    else:
+        logger.info("Usando analisi feature importance di base...")
+        return calculate_basic_feature_importance(best_models, feature_cols)
 
 def evaluate_on_test_set(best_models: Dict[str, Any], X_test, y_test_log, y_test_orig) -> Dict[str, Any]:
     """
@@ -493,9 +458,15 @@ def run_evaluation_pipeline(training_results: Dict[str, Any], preprocessing_path
         # Ottieni feature columns
         feature_cols = X_test.columns.tolist()
         
-        # 1. Calcola feature importance
+        # 1. Calcola feature importance (analisi avanzata con SHAP)
         df_feature_importance, feature_importance_summary = calculate_feature_importance(
-            training_results['best_models'], feature_cols
+            training_results['best_models'], 
+            feature_cols,
+            X_train=X_train,
+            X_test=X_test,
+            y_test=y_test_orig,
+            output_dir=output_paths.get('results_dir', 'results'),
+            use_advanced_analysis=True
         )
         
         # 2. Valutazione su test set

@@ -8,11 +8,11 @@ from typing import Dict, Any
 from ..utils.logger import get_logger
 from ..utils.io import load_dataframe, save_dataframe, save_json
 
-from .cleaning import clean_data, remove_specific_columns, remove_constant_columns, convert_to_numeric, transform_target_and_detect_outliers
+from .cleaning import clean_data, remove_specific_columns, remove_constant_columns, convert_to_numeric, transform_target_and_detect_outliers, detect_outliers_multimethod
 from .filtering import analyze_cramers_correlations, filter_features
 from .encoding import encode_features
 from .imputation import handle_missing_values
-from .transformation import split_dataset_with_validation, apply_feature_scaling, apply_pca_transformation
+from .transformation import split_dataset_with_validation, apply_feature_scaling, apply_pca_transformation, transform_target_log
 
 logger = get_logger(__name__)
 
@@ -179,16 +179,55 @@ def run_preprocessing_pipeline(
             preprocessing_info['steps_info']['scaling'] = {'skipped': True}
         
         # ===== STEP 11: TRASFORMAZIONE LOG + OUTLIER DETECTION (se abilitato) =====
-        if steps_config.get('enable_log_transformation', True) and steps_config.get('enable_outlier_detection', True):
-            logger.info("Step 11: Trasformazione log target + outlier detection...")
-            y_train_log, outliers_mask, outlier_detector = transform_target_and_detect_outliers(
-                y_train,
-                X_train_scaled,
-                z_threshold=config.get('z_threshold', 3.0),
-                iqr_multiplier=config.get('iqr_multiplier', 1.5),
-                contamination=config.get('isolation_contamination', 0.1),
-                min_methods=config.get('min_methods_outlier', 2)
-            )
+        enable_log = steps_config.get('enable_log_transformation', True)
+        enable_outliers = steps_config.get('enable_outlier_detection', True)
+        use_separate_functions = steps_config.get('use_separate_log_outlier_functions', False)
+        
+        if enable_log or enable_outliers:
+            if use_separate_functions:
+                # Usa funzioni separate per maggiore flessibilità
+                logger.info("Step 11: Usando funzioni separate per trasformazione log e outlier detection...")
+                
+                if enable_log:
+                    logger.info("Step 11a: Trasformazione logaritmica target...")
+                    y_train_log, transform_info = transform_target_log(y_train)
+                    preprocessing_info['steps_info']['log_transformation'] = transform_info
+                else:
+                    y_train_log = y_train
+                    preprocessing_info['steps_info']['log_transformation'] = {'skipped': True}
+                
+                if enable_outliers:
+                    logger.info("Step 11b: Outlier detection...")
+                    outliers_mask, outlier_info = detect_outliers_multimethod(
+                        y_train_log,
+                        X_train_scaled,
+                        z_threshold=config.get('z_threshold', 3.0),
+                        iqr_multiplier=config.get('iqr_multiplier', 1.5),
+                        contamination=config.get('isolation_contamination', 0.1),
+                        min_methods=config.get('min_methods_outlier', 2)
+                    )
+                    preprocessing_info['steps_info']['outlier_detection'] = outlier_info
+                else:
+                    outliers_mask = np.zeros(len(y_train_log), dtype=bool)
+                    preprocessing_info['steps_info']['outlier_detection'] = {'skipped': True}
+                
+                # Combina info per compatibilità
+                outlier_detector = {
+                    'method': 'separate_functions',
+                    'transform_info': preprocessing_info['steps_info'].get('log_transformation', {}),
+                    'outlier_info': preprocessing_info['steps_info'].get('outlier_detection', {})
+                }
+            else:
+                # Usa funzione combinata (comportamento originale)
+                logger.info("Step 11: Trasformazione log target + outlier detection (funzione combinata)...")
+                y_train_log, outliers_mask, outlier_detector = transform_target_and_detect_outliers(
+                    y_train,
+                    X_train_scaled,
+                    z_threshold=config.get('z_threshold', 3.0),
+                    iqr_multiplier=config.get('iqr_multiplier', 1.5),
+                    contamination=config.get('isolation_contamination', 0.1),
+                    min_methods=config.get('min_methods_outlier', 2)
+                )
             
             # Rimozione outliers dal training set
             outliers_count = outliers_mask.sum()
