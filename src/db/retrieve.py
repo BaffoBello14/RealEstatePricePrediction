@@ -65,8 +65,8 @@ def generate_query_dual_omi(select_clause: str) -> str:
         INNER JOIN ParticelleCatastali PC ON AI.IdParticellaCatastale = PC.Id
         INNER JOIN IstatSezioniCensuarie2021 ISC ON PC.IdSezioneCensuaria = ISC.Id
         INNER JOIN IstatIndicatori2021 II ON II.IdIstatZonaCensuaria = ISC.Id
-        INNER JOIN ParticelleCatastali_OmiZone PCOZ ON PCOZ.IdParticella = PC.Id
-        INNER JOIN OmiZone OZ ON PCOZ.IdZona = OZ.Id
+        INNER JOIN ParticelleCatastali_OmiZone PC_OZ ON PC_OZ.IdParticella = PC.Id
+        INNER JOIN OmiZone OZ ON PC_OZ.IdZona = OZ.Id
         -- Join su OmiValori per stato Normale (necessaria)
         INNER JOIN OmiValori OVN ON OZ.Id = OVN.IdZona
             AND OVN.Stato = 'Normale'
