@@ -46,9 +46,111 @@ def build_select_clause_dual_omi(schema: Dict[str, Any], selected_aliases: Optio
 
     return ",\n ".join(selects)
 
+def generate_poi_subquery() -> str:
+    """
+    Genera subquery per contare i POI per categoria entro 500m dall'immobile.
+    
+    Returns:
+        Subquery SQL per i conteggi POI
+    """
+    poi_categories = [
+        'restaurant', 'cafe', 'bar', 'bank', 'pharmacy', 'hospital', 
+        'school', 'university', 'shopping_mall', 'supermarket',
+        'gas_station', 'parking', 'gym', 'hotel'
+    ]
+    
+    poi_subqueries = []
+    
+    for category in poi_categories:
+        subquery = f"""
+        (SELECT COUNT(PDI.Id) 
+         FROM PuntiDiInteresse PDI
+         INNER JOIN PuntiDiInteresse_Tipologie PDIT ON PDI.Id = PDIT.IdPuntoDiInteresse
+         INNER JOIN PuntiDiInteresseTipologie PDITP ON PDIT.IdTipologia = PDITP.Id
+         WHERE PDITP.Id = '{category}'
+         AND PC.Isodistanza.STContains(PDI.Posizione) = 1) AS POI_{category}_count"""
+        poi_subqueries.append(subquery)
+    
+    return ",\n        ".join(poi_subqueries)
+
+def generate_ztl_subquery() -> str:
+    """
+    Genera subquery per verificare se l'immobile è in una ZTL.
+    
+    Returns:
+        Subquery SQL per controllo ZTL
+    """
+    return """
+        CASE 
+            WHEN EXISTS (
+                SELECT 1 
+                FROM ZoneTrafficoLimitato ZTL 
+                WHERE ZTL.Poligono.STContains(PC.Centroide) = 1
+            ) 
+            THEN 1 
+            ELSE 0 
+        END AS IsInZTL,
+        (SELECT TOP 1 ZTL.Denominazione 
+         FROM ZoneTrafficoLimitato ZTL 
+         WHERE ZTL.Poligono.STContains(PC.Centroide) = 1) AS ZTL_Denominazione"""
+
+def generate_query_dual_omi_with_poi_ztl(select_clause: str) -> str:
+    """
+    Genera la query SQL completa per il recupero dati con OMI multi-stato, POI e ZTL.
+    
+    Args:
+        select_clause: Clausola SELECT
+        
+    Returns:
+        Query SQL completa
+    """
+    poi_subquery = generate_poi_subquery()
+    ztl_subquery = generate_ztl_subquery()
+    
+    return f"""
+    SELECT
+        {select_clause},
+        {poi_subquery},
+        {ztl_subquery}
+    FROM
+        Atti A
+        INNER JOIN AttiImmobili AI ON AI.IdAtto = A.Id
+        INNER JOIN ParticelleCatastali PC ON AI.IdParticellaCatastale = PC.Id
+        INNER JOIN IstatSezioniCensuarie2021 ISC ON PC.IdSezioneCensuaria = ISC.Id
+        INNER JOIN IstatIndicatori2021 II ON II.IdIstatZonaCensuaria = ISC.Id
+        INNER JOIN ParticelleCatastali_OmiZone PCOZ ON PCOZ.IdParticella = PC.Id
+        INNER JOIN OmiZone OZ ON PCOZ.IdZona = OZ.Id
+        -- Join su OmiValori per stato Normale (necessaria)
+        INNER JOIN OmiValori OVN ON OZ.Id = OVN.IdZona
+            AND OVN.Stato = 'Normale'
+            AND AI.IdTipologiaEdilizia = OVN.IdTipologiaEdilizia
+            AND A.Semestre = OZ.IdAnnoSemestre
+        -- Join su OmiValori per stato Ottimo (opzionale)
+        LEFT JOIN OmiValori OVO ON OZ.Id = OVO.IdZona
+            AND OVO.Stato = 'Ottimo'
+            AND AI.IdTipologiaEdilizia = OVO.IdTipologiaEdilizia
+            AND A.Semestre = OZ.IdAnnoSemestre
+        -- Join su OmiValori per stato Scadente (opzionale)
+        LEFT JOIN OmiValori OVS ON OZ.Id = OVS.IdZona
+            AND OVS.Stato = 'Scadente'
+            AND AI.IdTipologiaEdilizia = OVS.IdTipologiaEdilizia
+            AND A.Semestre = OZ.IdAnnoSemestre
+    WHERE 
+        A.TotaleFabbricati = A.TotaleImmobili
+        AND AI.IdTipologiaEdilizia IS NOT NULL
+        AND PC.Isodistanza IS NOT NULL  -- Assicura che l'isodistanza sia calcolata
+        AND A.Id NOT IN (
+            SELECT IdAtto
+            FROM AttiImmobili
+            WHERE Superficie IS NULL
+            OR IdTipologiaEdilizia IS NULL
+        )
+    ORDER BY A.Id
+    """
+
 def generate_query_dual_omi(select_clause: str) -> str:
     """
-    Genera la query SQL completa per il recupero dati con OMI multi-stato.
+    Genera la query SQL completa per il recupero dati con OMI multi-stato (versione originale).
     
     Args:
         select_clause: Clausola SELECT
@@ -142,9 +244,57 @@ def drop_duplicate_columns(df: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
+def retrieve_data_with_poi_ztl(schema_path: str, selected_aliases: List[str], output_path: str) -> pd.DataFrame:
+    """
+    Recupera i dati dal database includendo POI e ZTL, e li salva su disco.
+    
+    Args:
+        schema_path: Path al file schema JSON
+        selected_aliases: Lista degli alias da includere
+        output_path: Path dove salvare i dati
+        
+    Returns:
+        DataFrame con i dati recuperati
+    """
+    logger.info(f"Avvio recupero dati dal database con POI e ZTL...")
+    logger.info(f"Schema: {schema_path}")
+    logger.info(f"Alias selezionati: {selected_aliases}")
+    
+    try:
+        # Carica schema
+        schema = load_json(schema_path)
+        logger.info(f"Schema caricato con {len(schema)} tabelle")
+        
+        # Costruisce query
+        select_clause = build_select_clause_dual_omi(schema, selected_aliases)
+        query = generate_query_dual_omi_with_poi_ztl(select_clause)
+        
+        logger.info("Query SQL generata con POI e ZTL")
+        
+        # Esegue query
+        engine = get_engine()
+        with engine.connect() as connection:
+            logger.info("Esecuzione query in corso...")
+            df = pd.read_sql(query, connection)
+            logger.info(f"Query completata: {df.shape[0]} righe, {df.shape[1]} colonne")
+        
+        # Pulizia dati
+        df = clean_dataframe(df)
+        df = drop_duplicate_columns(df)
+        
+        # Salva risultati
+        save_dataframe(df, output_path, format='parquet')
+        logger.info(f"Dati salvati in: {output_path}")
+        
+        return df
+        
+    except Exception as e:
+        logger.error(f"Errore nel recupero dati: {e}")
+        raise
+
 def retrieve_data(schema_path: str, selected_aliases: List[str], output_path: str) -> pd.DataFrame:
     """
-    Recupera i dati dal database e li salva su disco.
+    Recupera i dati dal database e li salva su disco (versione originale).
     
     Args:
         schema_path: Path al file schema JSON

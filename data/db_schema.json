@@ -1858,6 +1858,11 @@
                 "retrieve": false
             },
             {
+                "name": "Isodistanza",
+                "type": "geometry",
+                "retrieve": false
+            },
+            {
                 "name": "IdQuartiere",
                 "type": "int",
                 "retrieve": true
@@ -1986,6 +1991,86 @@
                 "name": "IdUtilizzo",
                 "type": "nvarchar",
                 "retrieve": true
+            }
+        ]
+    },
+    "PuntiDiInteresse": {
+        "alias": "PDI",
+        "columns": [
+            {
+                "name": "Id",
+                "type": "nvarchar",
+                "retrieve": true
+            },
+            {
+                "name": "Denominazione",
+                "type": "nvarchar",
+                "retrieve": true
+            },
+            {
+                "name": "Latitudine",
+                "type": "float",
+                "retrieve": true
+            },
+            {
+                "name": "Longitudine",
+                "type": "float",
+                "retrieve": true
+            },
+            {
+                "name": "Posizione",
+                "type": "geometry",
+                "retrieve": false
+            }
+        ]
+    },
+    "PuntiDiInteresse_Tipologie": {
+        "alias": "PDIT",
+        "columns": [
+            {
+                "name": "IdPuntoDiInteresse",
+                "type": "nvarchar",
+                "retrieve": true
+            },
+            {
+                "name": "IdTipologia",
+                "type": "nvarchar",
+                "retrieve": true
+            }
+        ]
+    },
+    "PuntiDiInteresseTipologie": {
+        "alias": "PDITP",
+        "columns": [
+            {
+                "name": "Id",
+                "type": "nvarchar",
+                "retrieve": true
+            },
+            {
+                "name": "Denominazione",
+                "type": "nvarchar",
+                "retrieve": true
+            }
+        ]
+    },
+    "ZoneTrafficoLimitato": {
+        "alias": "ZTL",
+        "columns": [
+            {
+                "name": "Id",
+                "type": "nvarchar",
+                "retrieve": true
+            },
+            {
+                "name": "Denominazione",
+                "type": "nvarchar",
+                "retrieve": true
+            },
+            {
+                "name": "Poligono",
+                "type": "geometry",
+                "retrieve": false
             }
         ]
     }
