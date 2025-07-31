@@ -203,7 +203,9 @@ def remove_highly_correlated_numeric(
     if to_drop:
         logger.info(f"Rimosse {len(to_drop)} feature numeriche correlate: {to_drop}")
         X_train = X_train.drop(columns=to_drop)
-        X_test = X_test.drop(columns=to_drop)
+        # Gestisce il caso in cui X_test è None (pre-split)
+        if X_test is not None:
+            X_test = X_test.drop(columns=to_drop)
     else:
         logger.info("Nessuna feature numerica da rimuovere per correlazione")
     
