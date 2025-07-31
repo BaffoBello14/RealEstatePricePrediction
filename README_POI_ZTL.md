@@ -25,7 +25,6 @@ Per ogni particella, verifica se il **centroide** è contenuto in una Zona a Tra
 
 **Campi aggiunti:**
 - `InZTL`: Flag binario (1 = in ZTL, 0 = non in ZTL)
-- `DenominazioneZTL`: Nome della ZTL (se presente) o "Nessuna"
 
 ## Utilizzo del Codice
 
@@ -113,13 +112,7 @@ ZTL_CHECK AS (
                 WHERE ZTL.Poligono.STContains(PC_MAIN.Centroide) = 1
             ) THEN 1 
             ELSE 0 
-        END as InZTL,
-        COALESCE(
-            (SELECT TOP 1 ZTL.Denominazione 
-             FROM ZoneTrafficoLimitato ZTL 
-             WHERE ZTL.Poligono.STContains(PC_MAIN.Centroide) = 1), 
-            'Nessuna'
-        ) as DenominazioneZTL
+        END as InZTL
     FROM ParticelleCatastali PC_MAIN
 )
 ```
@@ -135,7 +128,6 @@ ZTL_CHECK AS (
 
 ### Colonne ZTL
 - `InZTL`: Flag binario (0/1)
-- `DenominazioneZTL`: Nome della ZTL o "Nessuna"
 
 ## Test delle Funzionalità
 
@@ -171,11 +163,11 @@ Il test:
 ## Esempio di Risultato
 
 ```
-A_Id | PC_Superficie | POI_restaurant_count | POI_pharmacy_count | InZTL | DenominazioneZTL
------|---------------|---------------------|-------------------|-------|------------------
-001  | 120.5         | 3                   | 1                 | 1     | Centro Storico
-002  | 85.2          | 1                   | 0                 | 0     | Nessuna  
-003  | 200.0         | 5                   | 2                 | 1     | Zona Università
+A_Id | PC_Superficie | POI_restaurant_count | POI_pharmacy_count | InZTL
+-----|---------------|---------------------|-------------------|-------
+001  | 120.5         | 3                   | 1                 | 1     
+002  | 85.2          | 1                   | 0                 | 0     
+003  | 200.0         | 5                   | 2                 | 1     
 ```
 
 ## Backwards Compatibility

@@ -105,13 +105,7 @@ def generate_ztl_subquery() -> str:
                     WHERE ZTL.Poligono.STContains(PC_MAIN.Centroide) = 1
                 ) THEN 1 
                 ELSE 0 
-            END as InZTL,
-            COALESCE(
-                (SELECT TOP 1 ZTL.Denominazione 
-                 FROM ZoneTrafficoLimitato ZTL 
-                 WHERE ZTL.Poligono.STContains(PC_MAIN.Centroide) = 1), 
-                'Nessuna'
-            ) as DenominazioneZTL
+            END as InZTL
         FROM ParticelleCatastali PC_MAIN
     )"""
 
@@ -157,8 +151,7 @@ def generate_query_with_poi_and_ztl(select_clause: str, poi_categories: List[str
         -- Conteggi POI per tipologia
         {poi_selects_str},
         -- Informazioni ZTL
-        ZTL_INFO.InZTL as InZTL,
-        ZTL_INFO.DenominazioneZTL as DenominazioneZTL
+        ZTL_INFO.InZTL as InZTL
     FROM
         Atti A
         INNER JOIN AttiImmobili AI ON AI.IdAtto = A.Id
