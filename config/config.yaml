@@ -1,7 +1,7 @@
 # Database
 database:
   schema_path: "data/db_schema.json"
-  selected_aliases: ["A", "AI", "PC", "ISC", "II", "PCOZ", "OZ", "OV"]
+  selected_aliases: ["A", "AI", "PC", "ISC", "II", "PC_OZ", "OZ", "OV"]
 
 # Paths
 paths:

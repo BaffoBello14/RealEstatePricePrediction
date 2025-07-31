@@ -9,17 +9,17 @@
             },
             {
                 "name": "AnnoStipula",
-                "type": "int",
+                "type": "integer",
                 "retrieve": true
             },
             {
                 "name": "MeseStipula",
-                "type": "int",
+                "type": "integer",
                 "retrieve": true
             },
             {
                 "name": "Anno",
-                "type": "int",
+                "type": "integer",
                 "retrieve": true
             },
             {
@@ -29,7 +29,7 @@
             },
             {
                 "name": "RegPart",
-                "type": "int",
+                "type": "integer",
                 "retrieve": true
             },
             {
@@ -49,22 +49,22 @@
             },
             {
                 "name": "Prezzo",
-                "type": "bigint",
+                "type": "integer",
                 "retrieve": true
             },
             {
                 "name": "TotaleImmobili",
-                "type": "int",
+                "type": "integer",
                 "retrieve": true
             },
             {
                 "name": "TotaleFabbricati",
-                "type": "int",
+                "type": "integer",
                 "retrieve": true
             },
             {
                 "name": "Numero",
-                "type": "bigint",
+                "type": "integer",
                 "retrieve": true
             },
             {
@@ -79,17 +79,17 @@
             },
             {
                 "name": "AcquirentiCount",
-                "type": "int",
+                "type": "integer",
                 "retrieve": true
             },
             {
                 "name": "VenditoriCount",
-                "type": "int",
+                "type": "integer",
                 "retrieve": true
             },
             {
                 "name": "DatiCatastaliCompleti",
-                "type": "bit",
+                "type": "boolean",
                 "retrieve": true
             },
             {
@@ -104,17 +104,17 @@
             },
             {
                 "name": "AcquirentiVenditoriStessoCognome",
-                "type": "int",
+                "type": "boolean",
                 "retrieve": true
             },
             {
                 "name": "VenditoriEredita",
-                "type": "bit",
+                "type": "boolean",
                 "retrieve": true
             },
             {
                 "name": "ImmobiliPrincipaliConSuperficieValorizzata",
-                "type": "bit",
+                "type": "boolean",
                 "retrieve": true
             }
         ]
@@ -159,7 +159,7 @@
             },
             {
                 "name": "Numero",
-                "type": "bigint",
+                "type": "integer",
                 "retrieve": true
             },
             {
@@ -224,7 +224,7 @@
             },
             {
                 "name": "QuotaFavore",
-                "type": "int",
+                "type": "integer",
                 "retrieve": true
             },
             {
@@ -244,7 +244,7 @@
             },
             {
                 "name": "ConsistenzaValore",
-                "type": "decimal",
+                "type": "float",
                 "retrieve": true
             },
             {
@@ -254,7 +254,7 @@
             },
             {
                 "name": "SuperficieCalcolata",
-                "type": "decimal",
+                "type": "float",
                 "retrieve": false
             },
             {
@@ -274,17 +274,17 @@
             },
             {
                 "name": "IdParticellaCatastale",
-                "type": "int",
+                "type": "integer",
                 "retrieve": true
             },
             {
                 "name": "DatiCatastaliCompleti",
-                "type": "bit",
+                "type": "boolean",
                 "retrieve": true
             },
             {
                 "name": "VisuraScaricata",
-                "type": "bit",
+                "type": "boolean",
                 "retrieve": false
             },
             {
@@ -294,17 +294,17 @@
             },
             {
                 "name": "VisuraImport",
-                "type": "bit",
+                "type": "boolean",
                 "retrieve": false
             },
             {
                 "name": "VisuraParseMutazioniSoggettive",
-                "type": "bit",
+                "type": "boolean",
                 "retrieve": true
             },
             {
                 "name": "VisuraParseMutazioniSuperficie",
-                "type": "bit",
+                "type": "boolean",
                 "retrieve": false
             },
             {
@@ -319,27 +319,27 @@
             },
             {
                 "name": "SuperficieVisuraTotale",
-                "type": "int",
+                "type": "integer",
                 "retrieve": false
             },
             {
                 "name": "SuperficieVisuraTotaleE",
-                "type": "int",
+                "type": "integer",
                 "retrieve": false
             },
             {
                 "name": "SuperficieVisuraTotaleAttuale",
-                "type": "int",
+                "type": "integer",
                 "retrieve": false
             },
             {
                 "name": "SuperficieVisuraTotaleEAttuale",
-                "type": "int",
+                "type": "integer",
                 "retrieve": false
             },
             {
                 "name": "Superficie",
-                "type": "decimal",
+                "type": "float",
                 "retrieve": true
             }
         ]
@@ -394,7 +394,7 @@
             },
             {
                 "name": "Obsoleto",
-                "type": "bit",
+                "type": "boolean",
                 "retrieve": true
             },
             {
@@ -409,7 +409,7 @@
             },
             {
                 "name": "CoefficienteConversioneDaConsistenzaASuperficie",
-                "type": "decimal",
+                "type": "float",
                 "retrieve": true
             },
             {
@@ -459,17 +459,17 @@
             },
             {
                 "name": "EscludiDalServizioCompravendite",
-                "type": "bit",
+                "type": "boolean",
                 "retrieve": true
             },
             {
                 "name": "Catastale",
-                "type": "bit",
+                "type": "boolean",
                 "retrieve": true
             },
             {
                 "name": "Amministrativo",
-                "type": "bit",
+                "type": "boolean",
                 "retrieve": true
             },
             {
@@ -494,7 +494,7 @@
             },
             {
                 "name": "Obsoleto",
-                "type": "bit",
+                "type": "boolean",
                 "retrieve": true
             },
             {
@@ -504,12 +504,12 @@
             },
             {
                 "name": "VisureCatastaliFabbricati",
-                "type": "bit",
+                "type": "boolean",
                 "retrieve": true
             },
             {
                 "name": "VisureCatastaliTerreni",
-                "type": "bit",
+                "type": "boolean",
                 "retrieve": true
             },
             {
@@ -529,7 +529,7 @@
             },
             {
                 "name": "Omocodici",
-                "type": "int",
+                "type": "integer",
                 "retrieve": true
             },
             {
@@ -539,7 +539,7 @@
             },
             {
                 "name": "Migrare",
-                "type": "bit",
+                "type": "boolean",
                 "retrieve": true
             },
             {
@@ -549,7 +549,7 @@
             },
             {
                 "name": "PrimoOrdineGratuito",
-                "type": "bit",
+                "type": "boolean",
                 "retrieve": true
             },
             {
@@ -559,7 +559,7 @@
             },
             {
                 "name": "FogliLogici900",
-                "type": "bit",
+                "type": "boolean",
                 "retrieve": true
             },
             {
@@ -579,23 +579,23 @@
             },
             {
                 "name": "IsComuneTavolareCatastale",
-                "type": "bit",
+                "type": "boolean",
                 "retrieve": true
             },
             {
                 "name": "IsComuneTavolareAmministrativo",
-                "type": "bit",
+                "type": "boolean",
                 "retrieve": true
             },
             {
                 "name": "FabbricatiTerreniNonCoincidenti",
-                "type": "bit",
+                "type": "boolean",
                 "retrieve": true
             }
         ]
     },
     "geometry_columns": {
-        "alias": "GC",
+        "alias": "G_C",
         "columns": [
             {
                 "name": "f_table_catalog",
@@ -619,12 +619,12 @@
             },
             {
                 "name": "coord_dimension",
-                "type": "int",
+                "type": "integer",
                 "retrieve": true
             },
             {
                 "name": "srid",
-                "type": "int",
+                "type": "integer",
                 "retrieve": true
             },
             {
@@ -689,7 +689,7 @@
             },
             {
                 "name": "SisterIdImmobile",
-                "type": "int",
+                "type": "integer",
                 "retrieve": true
             },
             {
@@ -704,7 +704,7 @@
             },
             {
                 "name": "ConsistenzaValore",
-                "type": "decimal",
+                "type": "float",
                 "retrieve": true
             },
             {
@@ -714,7 +714,7 @@
             },
             {
                 "name": "SuperficieCalcolata",
-                "type": "decimal",
+                "type": "float",
                 "retrieve": true
             },
             {
@@ -724,7 +724,7 @@
             },
             {
                 "name": "IdParticellaCatastale",
-                "type": "int",
+                "type": "integer",
                 "retrieve": true
             }
         ]
@@ -1390,7 +1390,7 @@
         ]
     },
     "IstatIndicatori2021Tracciato": {
-        "alias": "IIT21",
+        "alias": "IIT",
         "columns": [
             {
                 "name": "Id",
@@ -1419,102 +1419,102 @@
             },
             {
                 "name": "CodReg",
-                "type": "bigint",
+                "type": "integer",
                 "retrieve": true
             },
             {
                 "name": "CodUts",
-                "type": "bigint",
+                "type": "integer",
                 "retrieve": true
             },
             {
                 "name": "ProCom",
-                "type": "bigint",
+                "type": "integer",
                 "retrieve": true
             },
             {
                 "name": "Sez21",
-                "type": "bigint",
+                "type": "integer",
                 "retrieve": true
             },
             {
                 "name": "CodTipoS",
-                "type": "bigint",
+                "type": "integer",
                 "retrieve": true
             },
             {
                 "name": "TipoLoc",
-                "type": "bigint",
+                "type": "integer",
                 "retrieve": true
             },
             {
                 "name": "Loc21Id",
-                "type": "bigint",
+                "type": "integer",
                 "retrieve": true
             },
             {
                 "name": "CodZic",
-                "type": "bigint",
+                "type": "integer",
                 "retrieve": true
             },
             {
                 "name": "CodIsam",
-                "type": "bigint",
+                "type": "integer",
                 "retrieve": true
             },
             {
                 "name": "CodAcque",
-                "type": "bigint",
+                "type": "integer",
                 "retrieve": true
             },
             {
                 "name": "CodIsole",
-                "type": "bigint",
+                "type": "integer",
                 "retrieve": true
             },
             {
                 "name": "CodMontD",
-                "type": "bigint",
+                "type": "integer",
                 "retrieve": true
             },
             {
                 "name": "CodAreaS",
-                "type": "bigint",
+                "type": "integer",
                 "retrieve": true
             },
             {
                 "name": "ComAsc1",
-                "type": "bigint",
+                "type": "integer",
                 "retrieve": true
             },
             {
                 "name": "ComAsc2",
-                "type": "bigint",
+                "type": "integer",
                 "retrieve": true
             },
             {
                 "name": "ComAsc3",
-                "type": "bigint",
+                "type": "integer",
                 "retrieve": true
             },
             {
                 "name": "Pop21",
-                "type": "bigint",
+                "type": "integer",
                 "retrieve": true
             },
             {
                 "name": "Fam21",
-                "type": "bigint",
+                "type": "integer",
                 "retrieve": true
             },
             {
                 "name": "Abi21",
-                "type": "bigint",
+                "type": "integer",
                 "retrieve": true
             },
             {
                 "name": "Edi21",
-                "type": "bigint",
+                "type": "integer",
                 "retrieve": true
             },
             {
@@ -1574,7 +1574,7 @@
             },
             {
                 "name": "Indice",
-                "type": "int",
+                "type": "integer",
                 "retrieve": true
             },
             {
@@ -1584,17 +1584,17 @@
             },
             {
                 "name": "Dal",
-                "type": "date",
+                "type": "datetime",
                 "retrieve": true
             },
             {
                 "name": "Al",
-                "type": "date",
+                "type": "datetime",
                 "retrieve": true
             },
             {
                 "name": "DataNascita",
-                "type": "date",
+                "type": "datetime",
                 "retrieve": true
             },
             {
@@ -1654,7 +1654,7 @@
             },
             {
                 "name": "EtaAllaDataCompravendita",
-                "type": "varchar",
+                "type": "integer",
                 "retrieve": true
             }
         ]
@@ -1769,7 +1769,7 @@
             },
             {
                 "name": "IdAnnoSemestre",
-                "type": "int",
+                "type": "integer",
                 "retrieve": true
             }
         ]
@@ -1779,7 +1779,7 @@
         "columns": [
             {
                 "name": "Id",
-                "type": "int",
+                "type": "integer",
                 "retrieve": true
             },
             {
@@ -1799,7 +1799,7 @@
             },
             {
                 "name": "ParticellaNumerica",
-                "type": "int",
+                "type": "integer",
                 "retrieve": true
             },
             {
@@ -1830,11 +1830,11 @@
             {
                 "name": "PoligonoGeoJson",
                 "type": "nvarchar",
-                "retrieve": false
+                "retrieve": true
             },
             {
                 "name": "PoligonoMetricoSrid",
-                "type": "int",
+                "type": "integer",
                 "retrieve": true
             },
             {
@@ -1844,6 +1844,11 @@
             },
             {
                 "name": "BoundingBox",
+                "type": "geometry",
+                "retrieve": false
+            },
+            {
+                "name": "Isodistanza",
                 "type": "geometry",
                 "retrieve": false
             },
@@ -1859,7 +1864,7 @@
             },
             {
                 "name": "IdQuartiere",
-                "type": "int",
+                "type": "integer",
                 "retrieve": true
             },
             {
@@ -1870,11 +1875,11 @@
         ]
     },
     "ParticelleCatastali_OmiZone": {
-        "alias": "PCOZ",
+        "alias": "PC_OZ",
         "columns": [
             {
                 "name": "IdParticella",
-                "type": "int",
+                "type": "integer",
                 "retrieve": true
             },
             {
@@ -1909,7 +1914,7 @@
             },
             {
                 "name": "ServizioCompravendite",
-                "type": "bit",
+                "type": "boolean",
                 "retrieve": true
             },
             {
@@ -1924,12 +1929,82 @@
             }
         ]
     },
+    "PuntiDiInteresse": {
+        "alias": "PDI",
+        "columns": [
+            {
+                "name": "Id",
+                "type": "nvarchar",
+                "retrieve": true
+            },
+            {
+                "name": "Denominazione",
+                "type": "nvarchar",
+                "retrieve": true
+            },
+            {
+                "name": "TipologieRicercate",
+                "type": "nvarchar",
+                "retrieve": true
+            },
+            {
+                "name": "Tipologie",
+                "type": "nvarchar",
+                "retrieve": true
+            },
+            {
+                "name": "Latitudine",
+                "type": "float",
+                "retrieve": true
+            },
+            {
+                "name": "Longitudine",
+                "type": "float",
+                "retrieve": true
+            },
+            {
+                "name": "Posizione",
+                "type": "geometry",
+                "retrieve": false
+            }
+        ]
+    },
+    "PuntiDiInteresse_Tipologie": {
+        "alias": "PDI_T",
+        "columns": [
+            {
+                "name": "IdPuntoDiInteresse",
+                "type": "nvarchar",
+                "retrieve": true
+            },
+            {
+                "name": "IdTipologia",
+                "type": "nvarchar",
+                "retrieve": true
+            }
+        ]
+    },
+    "PuntiDiInteresseTipologie": {
+        "alias": "PDIT",
+        "columns": [
+            {
+                "name": "Id",
+                "type": "nvarchar",
+                "retrieve": true
+            },
+            {
+                "name": "Denominazione",
+                "type": "nvarchar",
+                "retrieve": true
+            }
+        ]
+    },
     "Quartieri": {
         "alias": "Q",
         "columns": [
             {
                 "name": "Id",
-                "type": "int",
+                "type": "integer",
                 "retrieve": true
             },
             {
@@ -1969,6 +2044,66 @@
             }
         ]
     },
+    "spatial_ref_sys": {
+        "alias": "S_R_S",
+        "columns": [
+            {
+                "name": "srid",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "auth_name",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "auth_srid",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "srtext",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "proj4text",
+                "type": "varchar",
+                "retrieve": true
+            }
+        ]
+    },
+    "sysdiagrams": {
+        "alias": "S",
+        "columns": [
+            {
+                "name": "name",
+                "type": "nvarchar",
+                "retrieve": true
+            },
+            {
+                "name": "principal_id",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "diagram_id",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "version",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "definition",
+                "type": "binary",
+                "retrieve": true
+            }
+        ]
+    },
     "TipologieEdilizie": {
         "alias": "TE",
         "columns": [
@@ -1986,6 +2121,851 @@
                 "name": "IdUtilizzo",
                 "type": "nvarchar",
                 "retrieve": true
+            }
+        ]
+    },
+    "XAtti": {
+        "alias": "XA",
+        "columns": [
+            {
+                "name": "Id",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "Numero",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "AnnoStipula",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "MeseStipula",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "Anno",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "Semestre",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "RegPart",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "Codice",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "IdConservatoria",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "IdTipologiaAtto",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "IdDecodificaAtto",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "Prezzo",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "TotaleImmobili",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "TotaleFabbricati",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "IdTipoConsistenza",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "IdMutazioneIntestati",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "IdAttoImmobilleRiferimento",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "AcquirentiCount",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "VenditoriCount",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "DatiCatastaliCompleti",
+                "type": "boolean",
+                "retrieve": true
+            },
+            {
+                "name": "AcquirentiVenditoriStessoCognome",
+                "type": "integer",
+                "retrieve": true
+            }
+        ]
+    },
+    "XAttiImmobili": {
+        "alias": "XAI",
+        "columns": [
+            {
+                "name": "Id",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "IdAtto",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "IdSettoreMercato",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "IdCategoriaCatastale",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "Numero",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "IdComune",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "SezioneAmministrativa",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "SezioneCensuaria",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "SezioneUrbana",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "Foglio",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "Particella",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "Subalterno",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "ZonaOmi",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "Via",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "Civico",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "Latitudine",
+                "type": "float",
+                "retrieve": true
+            },
+            {
+                "name": "Longitudine",
+                "type": "float",
+                "retrieve": true
+            },
+            {
+                "name": "QuotaFavore",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "Posizione",
+                "type": "geometry",
+                "retrieve": false
+            },
+            {
+                "name": "ConsistenzaValore",
+                "type": "float",
+                "retrieve": true
+            },
+            {
+                "name": "ConsistenzaUm",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "SuperficieCalcolata",
+                "type": "float",
+                "retrieve": true
+            },
+            {
+                "name": "StockParticellaStessaCategoria",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "StockParticella",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "DatiCatastaliCompleti",
+                "type": "boolean",
+                "retrieve": true
+            },
+            {
+                "name": "VisuraScaricata",
+                "type": "boolean",
+                "retrieve": true
+            },
+            {
+                "name": "VisuraIdRichiesta",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "VisuraErrore",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "VisuraImport",
+                "type": "boolean",
+                "retrieve": true
+            },
+            {
+                "name": "VisuraParseMutazioniSoggettive",
+                "type": "boolean",
+                "retrieve": true
+            },
+            {
+                "name": "VisuraParseMutazioniSuperficie",
+                "type": "boolean",
+                "retrieve": true
+            },
+            {
+                "name": "VisuraParseMutazioniSoggettiveErrore",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "VisuraParseMutazioniSuperficieErrore",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "SuperficieVisuraTotale",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "SuperficieVisuraTotaleE",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "SuperficieVisuraTotaleMedia",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "SuperficieVisuraTotaleEMedia",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "SuperficieVisuraTotaleAttuale",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "SuperficieVisuraTotaleEAttuale",
+                "type": "integer",
+                "retrieve": true
+            }
+        ]
+    },
+    "XImmobili": {
+        "alias": "XI",
+        "columns": [
+            {
+                "name": "Id",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "IdCategoriaCatastale",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "Foglio",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "Particella",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "Subalterno",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "Partita",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "Via",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "Civico",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "Piano",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "Rendita",
+                "type": "money",
+                "retrieve": true
+            },
+            {
+                "name": "SisterIdImmobile",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "Latitudine",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "Longitudine",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "ConsistenzaValore",
+                "type": "float",
+                "retrieve": true
+            },
+            {
+                "name": "ConsistenzaUM",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "SuperficieCalcolata",
+                "type": "float",
+                "retrieve": true
+            },
+            {
+                "name": "IdTipologiaEdilizia",
+                "type": "nvarchar",
+                "retrieve": true
+            },
+            {
+                "name": "IdParticellaCatastale",
+                "type": "integer",
+                "retrieve": true
+            }
+        ]
+    },
+    "Xoutput1": {
+        "alias": "X",
+        "columns": [
+            {
+                "name": "Id",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "SezioneUrbana",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "Foglio",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "Particella",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "Subalterno",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "ZonaCensuaria",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "Partita",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "IndirizzoRaw",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "Via",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "Civico",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "Piano",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "CategoriaCatastale",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "Classe",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "ConsistenzaValoreTxt",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "ConsistenzaUM",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "ConsistenzaValore",
+                "type": "float",
+                "retrieve": true
+            }
+        ]
+    },
+    "XXAtti": {
+        "alias": "XXA",
+        "columns": [
+            {
+                "name": "Id",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "Numero",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "AnnoStipula",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "MeseStipula",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "Anno",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "Semestre",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "RegPart",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "Codice",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "IdConservatoria",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "IdTipologiaAtto",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "IdDecodificaAtto",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "Prezzo",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "TotaleImmobili",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "TotaleFabbricati",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "IdTipoConsistenza",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "IdMutazioneIntestati",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "IdAttoImmobilleRiferimento",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "AcquirentiCount",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "VenditoriCount",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "DatiCatastaliCompleti",
+                "type": "boolean",
+                "retrieve": true
+            },
+            {
+                "name": "AcquirentiVenditoriStessoCognome",
+                "type": "boolean",
+                "retrieve": true
+            },
+            {
+                "name": "EtaMediaVenditori",
+                "type": "float",
+                "retrieve": true
+            },
+            {
+                "name": "EtaMediaAcquirenti",
+                "type": "float",
+                "retrieve": true
+            },
+            {
+                "name": "IdMutazioneIntestatiVenditori",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "VenditoriEredita",
+                "type": "boolean",
+                "retrieve": true
+            }
+        ]
+    },
+    "XXAttiImmobili": {
+        "alias": "XXAI",
+        "columns": [
+            {
+                "name": "Id",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "IdAtto",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "IdSettoreMercato",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "IdCategoriaCatastale",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "Numero",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "IdComune",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "SezioneAmministrativa",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "SezioneCensuaria",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "SezioneUrbana",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "Foglio",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "Particella",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "Subalterno",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "ZonaOmi",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "Via",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "Civico",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "Latitudine",
+                "type": "float",
+                "retrieve": true
+            },
+            {
+                "name": "Longitudine",
+                "type": "float",
+                "retrieve": true
+            },
+            {
+                "name": "QuotaFavore",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "Posizione",
+                "type": "geometry",
+                "retrieve": false
+            },
+            {
+                "name": "ConsistenzaValore",
+                "type": "float",
+                "retrieve": true
+            },
+            {
+                "name": "ConsistenzaUm",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "SuperficieCalcolata",
+                "type": "float",
+                "retrieve": true
+            },
+            {
+                "name": "StockParticellaStessaCategoria",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "StockParticella",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "DatiCatastaliCompleti",
+                "type": "boolean",
+                "retrieve": true
+            },
+            {
+                "name": "VisuraScaricata",
+                "type": "boolean",
+                "retrieve": true
+            },
+            {
+                "name": "VisuraIdRichiesta",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "VisuraErrore",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "VisuraImport",
+                "type": "boolean",
+                "retrieve": true
+            },
+            {
+                "name": "VisuraParseMutazioniSoggettive",
+                "type": "boolean",
+                "retrieve": true
+            },
+            {
+                "name": "VisuraParseMutazioniSuperficie",
+                "type": "boolean",
+                "retrieve": true
+            },
+            {
+                "name": "VisuraParseMutazioniSoggettiveErrore",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "VisuraParseMutazioniSuperficieErrore",
+                "type": "varchar",
+                "retrieve": true
+            },
+            {
+                "name": "SuperficieVisuraTotale",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "SuperficieVisuraTotaleE",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "SuperficieVisuraTotaleMedia",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "SuperficieVisuraTotaleEMedia",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "SuperficieVisuraTotaleAttuale",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "SuperficieVisuraTotaleEAttuale",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "Superficie",
+                "type": "float",
+                "retrieve": true
+            }
+        ]
+    },
+    "ZoneTrafficoLimitato": {
+        "alias": "ZTL",
+        "columns": [
+            {
+                "name": "Id",
+                "type": "integer",
+                "retrieve": true
+            },
+            {
+                "name": "Denominazione",
+                "type": "nvarchar",
+                "retrieve": true
+            },
+            {
+                "name": "Poligono",
+                "type": "geometry",
+                "retrieve": false
             }
         ]
     }
