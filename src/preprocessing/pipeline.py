@@ -94,30 +94,19 @@ def run_preprocessing_pipeline(
         # ===== STEP 7: RIMOZIONE FEATURE CORRELATE PRE-SPLIT (se abilitato) =====
         if steps_config.get('enable_correlation_removal', True):
             logger.info("Step 7: Rimozione feature altamente correlate...")
-            # Usa la funzione di filtering esistente per rimozione correlazioni numeriche
-            from .filtering import remove_highly_correlated_numeric
+            # Usa la funzione dedicata PRE-SPLIT
+            from .filtering import remove_highly_correlated_numeric_pre_split
             
-            # Separazione temporanea per analisi correlazioni
-            X_temp = df.drop(columns=[target_column])
-            numeric_cols = X_temp.select_dtypes(include=[np.number]).columns
+            df, removed_numeric_cols = remove_highly_correlated_numeric_pre_split(
+                df, 
+                target_column=target_column,
+                threshold=config.get('corr_threshold', 0.95)
+            )
             
-            if len(numeric_cols) > 1:
-                X_numeric = X_temp[numeric_cols]
-                # Applica rimozione solo alle colonne numeriche
-                _, _, removed_numeric_cols = remove_highly_correlated_numeric(
-                    X_numeric, None, config.get('corr_threshold', 0.95)
-                )
-                
-                if removed_numeric_cols:
-                    df = df.drop(columns=removed_numeric_cols)
-                    logger.info(f"Rimosse {len(removed_numeric_cols)} colonne numeriche correlate")
-                
-                correlation_removal_info = {
-                    'removed_columns': removed_numeric_cols,
-                    'threshold_used': config.get('corr_threshold', 0.95)
-                }
-            else:
-                correlation_removal_info = {'removed_columns': [], 'note': 'Meno di 2 colonne numeriche'}
+            correlation_removal_info = {
+                'removed_columns': removed_numeric_cols,
+                'threshold_used': config.get('corr_threshold', 0.95)
+            }
             
             preprocessing_info['steps_info']['correlation_removal'] = correlation_removal_info
         else:
