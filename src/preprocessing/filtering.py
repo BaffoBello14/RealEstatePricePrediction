@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from scipy.stats import chi2_contingency
-from typing import Tuple, List, Dict, Any
+from typing import Tuple, List, Dict, Any, Optional
 from ..utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -174,15 +174,15 @@ def remove_highly_correlated_categorical(df: pd.DataFrame, threshold: float = 0.
 
 def remove_highly_correlated_numeric(
     X_train: pd.DataFrame, 
-    X_test: pd.DataFrame, 
+    X_test: pd.DataFrame = None, 
     threshold: float = 0.95
-) -> Tuple[pd.DataFrame, pd.DataFrame, List[str]]:
+) -> Tuple[pd.DataFrame, Optional[pd.DataFrame], List[str]]:
     """
     Rimuove feature numeriche altamente correlate (solo su train).
     
     Args:
         X_train: Feature di training
-        X_test: Feature di test
+        X_test: Feature di test (può essere None)
         threshold: Soglia di correlazione
         
     Returns:
@@ -203,11 +203,55 @@ def remove_highly_correlated_numeric(
     if to_drop:
         logger.info(f"Rimosse {len(to_drop)} feature numeriche correlate: {to_drop}")
         X_train = X_train.drop(columns=to_drop)
-        X_test = X_test.drop(columns=to_drop)
+        # Gestisce il caso in cui X_test sia None
+        if X_test is not None:
+            X_test = X_test.drop(columns=to_drop)
     else:
         logger.info("Nessuna feature numerica da rimuovere per correlazione")
     
     return X_train, X_test, to_drop
+
+def remove_highly_correlated_numeric_pre_split(
+    df: pd.DataFrame,
+    target_column: str = None,
+    threshold: float = 0.95
+) -> Tuple[pd.DataFrame, List[str]]:
+    """
+    Rimuove feature numeriche altamente correlate PRE-SPLIT.
+    Progettata per lavorare su un DataFrame completo prima dello split.
+    
+    Args:
+        df: DataFrame completo con tutte le feature
+        target_column: Nome della colonna target (da escludere dall'analisi)
+        threshold: Soglia di correlazione
+        
+    Returns:
+        Tuple con DataFrame filtrato e lista colonne rimosse
+    """
+    logger.info(f"Rimozione feature numeriche correlate PRE-SPLIT (soglia: {threshold})...")
+    
+    # Seleziona solo colonne numeriche, escludendo il target se specificato
+    numeric_cols = df.select_dtypes(include=np.number).columns
+    if target_column and target_column in numeric_cols:
+        numeric_cols = numeric_cols.drop(target_column)
+    
+    if len(numeric_cols) < 2:
+        logger.info("Meno di 2 variabili numeriche, skip correlazione")
+        return df, []
+    
+    # Calcola correlazione solo su feature numeriche
+    corr = df[numeric_cols].corr().abs()
+    upper = corr.where(np.triu(np.ones(corr.shape), k=1).astype(bool))
+    to_drop = [col for col in upper.columns if any(upper[col] > threshold)]
+    
+    if to_drop:
+        logger.info(f"Rimosse {len(to_drop)} feature numeriche correlate: {to_drop}")
+        df_filtered = df.drop(columns=to_drop)
+    else:
+        logger.info("Nessuna feature numerica da rimuovere per correlazione")
+        df_filtered = df
+    
+    return df_filtered, to_drop
 
 def filter_features(
     df: pd.DataFrame = None,
