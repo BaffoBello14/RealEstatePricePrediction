@@ -247,6 +247,7 @@ def transform_target_and_detect_outliers(
 ) -> Tuple[pd.Series, np.ndarray, Dict[str, Any]]:
     """
     Trasforma il target e rileva outliers usando multiple metodologie.
+    DEPRECATED: Usa transform_target_log e detect_outliers_multimethod separatamente.
     
     Args:
         y_train: Serie target di training
@@ -259,70 +260,116 @@ def transform_target_and_detect_outliers(
     Returns:
         Tuple con target trasformato, mask outliers, info detector
     """
-    logger.info("Trasformazione target e outlier detection...")
+    from .transformation import transform_target_log
+    
+    logger.info("Trasformazione target e outlier detection (usando funzioni separate)...")
     
     # Step 1: Trasformazione logaritmica del target
-    original_skew = stats.skew(y_train)
-    y_train_log = np.log1p(y_train)
-    log_skew = stats.skew(y_train_log)
+    y_train_log, transform_info = transform_target_log(y_train)
     
-    logger.info(f"Skewness originale: {original_skew:.3f}")
-    logger.info(f"Skewness dopo log: {log_skew:.3f}")
+    # Step 2: Outlier detection
+    outliers_mask, outlier_info = detect_outliers_multimethod(
+        y_train_log, X_train, z_threshold, iqr_multiplier, contamination, min_methods
+    )
     
-    # Step 2: Outlier detection con multiple methods
-    outlier_votes = np.zeros(len(y_train_log))
+    # Combina le informazioni per compatibilità con l'API esistente
+    detector_info = {
+        'original_skew': transform_info['original_skew'],
+        'log_skew': transform_info['log_skew'],
+        'total_outliers': outlier_info['total_outliers'],
+        'outlier_percentage': outlier_info['outlier_percentage'],
+        'methods_used': outlier_info['methods_used'],
+        'parameters': outlier_info['parameters'],
+        'target_bounds': {
+            'log_min': transform_info['target_bounds']['log_min'],
+            'log_max': transform_info['target_bounds']['log_max'],
+            'log_mean': transform_info['target_bounds']['log_mean'],
+            'log_std': transform_info['target_bounds']['log_std']
+        }
+    }
+    
+    return y_train_log, outliers_mask, detector_info
+
+def detect_outliers_multimethod(
+    y_target: pd.Series,
+    X_features: pd.DataFrame = None,
+    z_threshold: float = 3.0,
+    iqr_multiplier: float = 1.5,
+    contamination: float = 0.1,
+    min_methods: int = 2
+) -> Tuple[np.ndarray, Dict[str, Any]]:
+    """
+    Rileva outliers usando multiple metodologie.
+    
+    Args:
+        y_target: Serie target su cui applicare outlier detection
+        X_features: DataFrame features (per Isolation Forest), opzionale
+        z_threshold: Soglia per Z-score
+        iqr_multiplier: Moltiplicatore per IQR
+        contamination: Parametro per Isolation Forest
+        min_methods: Numero minimo di metodi che devono identificare un outlier
+        
+    Returns:
+        Tuple con mask outliers e informazioni sui metodi usati
+    """
+    logger.info("Outlier detection con metodologie multiple...")
+    
+    # Inizializza conteggio votes per ogni metodo
+    outlier_votes = np.zeros(len(y_target))
     outlier_methods = []
     
     # Metodo 1: Z-Score
-    z_scores = stats.zscore(y_train_log)
+    z_scores = stats.zscore(y_target)
     z_outliers = np.abs(z_scores) > z_threshold
     outlier_votes[z_outliers] += 1
     outlier_methods.append(('z_score', z_outliers.sum()))
     logger.info(f"Z-Score outliers (soglia {z_threshold}): {z_outliers.sum()}")
     
     # Metodo 2: IQR
-    Q1 = y_train_log.quantile(0.25)
-    Q3 = y_train_log.quantile(0.75)
+    Q1 = y_target.quantile(0.25)
+    Q3 = y_target.quantile(0.75)
     IQR = Q3 - Q1
     lower_bound = Q1 - iqr_multiplier * IQR
     upper_bound = Q3 + iqr_multiplier * IQR
     
-    iqr_outliers = (y_train_log < lower_bound) | (y_train_log > upper_bound)
+    iqr_outliers = (y_target < lower_bound) | (y_target > upper_bound)
     outlier_votes[iqr_outliers] += 1
     outlier_methods.append(('iqr', iqr_outliers.sum()))
     logger.info(f"IQR outliers (moltiplicatore {iqr_multiplier}): {iqr_outliers.sum()}")
     
-    # Metodo 3: Isolation Forest (se abbastanza features numeriche)
-    numeric_features = X_train.select_dtypes(include=[np.number])
-    if numeric_features.shape[1] > 0:
-        try:
-            iso_forest = IsolationForest(
-                contamination=contamination,
-                random_state=42,
-                n_jobs=1
-            )
-            iso_outliers_pred = iso_forest.fit_predict(numeric_features)
-            iso_outliers = iso_outliers_pred == -1
-            outlier_votes[iso_outliers] += 1
-            outlier_methods.append(('isolation_forest', iso_outliers.sum()))
-            logger.info(f"Isolation Forest outliers (contamination {contamination}): {iso_outliers.sum()}")
-        except Exception as e:
-            logger.warning(f"Isolation Forest fallito: {e}")
+    # Metodo 3: Isolation Forest (se features fornite e numeriche disponibili)
+    if X_features is not None:
+        numeric_features = X_features.select_dtypes(include=[np.number])
+        if numeric_features.shape[1] > 0:
+            try:
+                iso_forest = IsolationForest(
+                    contamination=contamination,
+                    random_state=42,
+                    n_jobs=1
+                )
+                iso_outliers_pred = iso_forest.fit_predict(numeric_features)
+                iso_outliers = iso_outliers_pred == -1
+                outlier_votes[iso_outliers] += 1
+                outlier_methods.append(('isolation_forest', iso_outliers.sum()))
+                logger.info(f"Isolation Forest outliers (contamination {contamination}): {iso_outliers.sum()}")
+            except Exception as e:
+                logger.warning(f"Isolation Forest fallito: {e}")
+        else:
+            logger.warning("Nessuna feature numerica disponibile per Isolation Forest")
+    else:
+        logger.info("Features non fornite, skip Isolation Forest")
     
-    # Step 3: Combina i metodi
-    # Un punto è considerato outlier se identificato da almeno min_methods
+    # Combina i metodi: un punto è outlier se identificato da almeno min_methods
     outliers_mask = outlier_votes >= min_methods
     total_outliers = outliers_mask.sum()
     
-    logger.info(f"Outliers finali (min_methods={min_methods}): {total_outliers}/{len(y_train_log)} "
-               f"({total_outliers/len(y_train_log)*100:.2f}%)")
+    logger.info(f"Outliers finali (min_methods={min_methods}): {total_outliers}/{len(y_target)} "
+               f"({total_outliers/len(y_target)*100:.2f}%)")
     
-    # Informazioni detector
-    detector_info = {
-        'original_skew': float(original_skew),
-        'log_skew': float(log_skew),
+    # Informazioni sui metodi usati
+    outlier_info = {
         'total_outliers': int(total_outliers),
-        'outlier_percentage': float(total_outliers/len(y_train_log)*100),
+        'outlier_percentage': float(total_outliers/len(y_target)*100),
         'methods_used': outlier_methods,
         'parameters': {
             'z_threshold': z_threshold,
@@ -330,15 +377,20 @@ def transform_target_and_detect_outliers(
             'contamination': contamination,
             'min_methods': min_methods
         },
-        'target_bounds': {
-            'log_min': float(y_train_log.min()),
-            'log_max': float(y_train_log.max()),
-            'log_mean': float(y_train_log.mean()),
-            'log_std': float(y_train_log.std())
+        'target_stats': {
+            'min': float(y_target.min()),
+            'max': float(y_target.max()),
+            'mean': float(y_target.mean()),
+            'std': float(y_target.std()),
+            'q1': float(Q1),
+            'q3': float(Q3),
+            'iqr': float(IQR),
+            'lower_bound': float(lower_bound),
+            'upper_bound': float(upper_bound)
         }
     }
     
-    return y_train_log, outliers_mask, detector_info
+    return outliers_mask, outlier_info
 
 def transform_target_and_detect_outliers_by_category(
     y_train: pd.Series,

@@ -547,3 +547,49 @@ def inverse_transform_target(y_log: pd.Series) -> pd.Series:
         Target nella scala originale
     """
     return np.expm1(y_log)  # Inverso di log1p
+
+def transform_target_log(y_train: pd.Series) -> Tuple[pd.Series, Dict[str, Any]]:
+    """
+    Applica trasformazione logaritmica al target.
+    
+    Args:
+        y_train: Serie target di training
+        
+    Returns:
+        Tuple con target trasformato e informazioni sulla trasformazione
+    """
+    from scipy import stats
+    
+    logger.info("Applicazione trasformazione logaritmica al target...")
+    
+    # Calcola skewness originale
+    original_skew = stats.skew(y_train)
+    
+    # Applica trasformazione log1p (log(1+x) per gestire valori zero)
+    y_train_log = np.log1p(y_train)
+    
+    # Calcola skewness dopo trasformazione
+    log_skew = stats.skew(y_train_log)
+    
+    logger.info(f"Skewness originale: {original_skew:.3f}")
+    logger.info(f"Skewness dopo log: {log_skew:.3f}")
+    logger.info(f"Miglioramento skewness: {abs(original_skew) - abs(log_skew):.3f}")
+    
+    # Informazioni sulla trasformazione
+    transform_info = {
+        'original_skew': float(original_skew),
+        'log_skew': float(log_skew),
+        'skew_improvement': float(abs(original_skew) - abs(log_skew)),
+        'target_bounds': {
+            'original_min': float(y_train.min()),
+            'original_max': float(y_train.max()),
+            'original_mean': float(y_train.mean()),
+            'original_std': float(y_train.std()),
+            'log_min': float(y_train_log.min()),
+            'log_max': float(y_train_log.max()),
+            'log_mean': float(y_train_log.mean()),
+            'log_std': float(y_train_log.std())
+        }
+    }
+    
+    return y_train_log, transform_info
