@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from scipy.stats import chi2_contingency
-from typing import Tuple, List, Dict, Any
+from typing import Tuple, List, Dict, Any, Optional
 from ..utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -174,15 +174,15 @@ def remove_highly_correlated_categorical(df: pd.DataFrame, threshold: float = 0.
 
 def remove_highly_correlated_numeric(
     X_train: pd.DataFrame, 
-    X_test: pd.DataFrame, 
+    X_test: pd.DataFrame = None, 
     threshold: float = 0.95
-) -> Tuple[pd.DataFrame, pd.DataFrame, List[str]]:
+) -> Tuple[pd.DataFrame, Optional[pd.DataFrame], List[str]]:
     """
     Rimuove feature numeriche altamente correlate (solo su train).
     
     Args:
         X_train: Feature di training
-        X_test: Feature di test
+        X_test: Feature di test (può essere None)
         threshold: Soglia di correlazione
         
     Returns:
@@ -203,7 +203,9 @@ def remove_highly_correlated_numeric(
     if to_drop:
         logger.info(f"Rimosse {len(to_drop)} feature numeriche correlate: {to_drop}")
         X_train = X_train.drop(columns=to_drop)
-        X_test = X_test.drop(columns=to_drop)
+        # Gestisce il caso in cui X_test sia None
+        if X_test is not None:
+            X_test = X_test.drop(columns=to_drop)
     else:
         logger.info("Nessuna feature numerica da rimuovere per correlazione")
     
