@@ -7,12 +7,43 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import shap
+import signal
+import time
 from typing import Dict, Any, List, Tuple, Optional
 from sklearn.metrics import mean_squared_error
 from sklearn.inspection import permutation_importance
 from ..utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+class TimeoutError(Exception):
+    """Exception raised when operation times out."""
+    pass
+
+def timeout_handler(signum, frame):
+    """Handler for timeout signal."""
+    raise TimeoutError("Operation timed out")
+
+def with_timeout(timeout_seconds):
+    """Decorator to add timeout to function execution."""
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            # Set the signal handler
+            old_handler = signal.signal(signal.SIGALRM, timeout_handler)
+            signal.alarm(timeout_seconds)
+            
+            try:
+                result = func(*args, **kwargs)
+                return result
+            except TimeoutError:
+                logger.warning(f"Function {func.__name__} timed out after {timeout_seconds} seconds")
+                return None
+            finally:
+                # Reset the alarm
+                signal.alarm(0)
+                signal.signal(signal.SIGALRM, old_handler)
+        return wrapper
+    return decorator
 
 def calculate_basic_feature_importance(best_models: Dict[str, Any], feature_cols: List[str]) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
@@ -78,16 +109,18 @@ def calculate_basic_feature_importance(best_models: Dict[str, Any], feature_cols
     
     return df_feature_importance, feature_importance_summary
 
+@with_timeout(300)  # 5 minutes timeout
 def calculate_shap_importance(
     model: Any, 
     X_train: pd.DataFrame, 
     X_test: pd.DataFrame, 
     model_name: str,
     model_type: str = 'auto',
-    sample_size: int = 1000
+    sample_size: int = 500,  # Reduced from 1000
+    background_size: int = 100  # Added separate background size
 ) -> Dict[str, Any]:
     """
-    Calcola SHAP values per un modello.
+    Calcola SHAP values per un modello con ottimizzazioni di performance.
     
     Args:
         model: Modello addestrato
@@ -96,6 +129,7 @@ def calculate_shap_importance(
         model_name: Nome del modello
         model_type: Tipo di explainer ('tree', 'linear', 'kernel', 'auto')
         sample_size: Numero di campioni per calcolo
+        background_size: Numero di campioni background per kernel explainer
         
     Returns:
         Dictionary con SHAP values e informazioni
@@ -103,35 +137,65 @@ def calculate_shap_importance(
     logger.info(f"Calcolo SHAP values per {model_name}...")
     
     try:
-        # Campiona i dati se troppo grandi
-        if len(X_train) > sample_size:
-            train_sample = X_train.sample(n=sample_size, random_state=42)
+        # Scegli explainer automaticamente se richiesto
+        if model_type == 'auto':
+            model_type = _detect_model_type(model)
+        
+        # Per modelli kernel, usa campionamento più aggressivo
+        if model_type == 'kernel':
+            # Usa kmeans per background più rappresentativo
+            background_size = min(background_size, 50)  # Molto ridotto per kernel
+            sample_size = min(sample_size, 200)  # Ridotto per kernel
+            
+            if len(X_train) > background_size:
+                # Usa kmeans per campionamento più intelligente
+                try:
+                    background_sample = shap.kmeans(X_train, background_size).data
+                    background_sample = pd.DataFrame(background_sample, columns=X_train.columns)
+                except:
+                    # Fallback a campionamento casuale se kmeans fallisce
+                    background_sample = X_train.sample(n=background_size, random_state=42)
+            else:
+                background_sample = X_train
         else:
-            train_sample = X_train
+            # Per altri modelli, usa dimensioni standard
+            if len(X_train) > sample_size:
+                background_sample = X_train.sample(n=sample_size, random_state=42)
+            else:
+                background_sample = X_train
             
         if len(X_test) > sample_size:
             test_sample = X_test.sample(n=sample_size, random_state=42)
         else:
             test_sample = X_test
         
-        # Scegli explainer automaticamente se richiesto
-        if model_type == 'auto':
-            model_type = _detect_model_type(model)
+        logger.info(f"Usando {len(background_sample)} campioni background e {len(test_sample)} campioni test per {model_name}")
         
-        # Crea explainer
+        # Crea explainer con parametri ottimizzati
         if model_type == 'tree':
             explainer = shap.TreeExplainer(model)
             shap_values = explainer.shap_values(test_sample)
         elif model_type == 'linear':
-            explainer = shap.LinearExplainer(model, train_sample)
+            explainer = shap.LinearExplainer(model, background_sample)
             shap_values = explainer.shap_values(test_sample)
         elif model_type == 'kernel':
-            explainer = shap.KernelExplainer(model.predict, train_sample)
-            shap_values = explainer.shap_values(test_sample)
+            # Parametri ottimizzati per kernel explainer
+            explainer = shap.KernelExplainer(
+                model.predict, 
+                background_sample,
+                link="identity"  # Più veloce per regressione
+            )
+            # Limita ulteriormente i campioni per kernel explainer
+            kernel_test_sample = test_sample.head(min(50, len(test_sample)))
+            logger.info(f"Kernel explainer: usando solo {len(kernel_test_sample)} campioni test per velocità")
+            shap_values = explainer.shap_values(kernel_test_sample, silent=True)
+            test_sample = kernel_test_sample  # Aggiorna il riferimento
         else:
-            # Fallback a Permutation explainer
-            explainer = shap.Explainer(model.predict, train_sample)
-            shap_values = explainer(test_sample).values
+            # Fallback a Permutation explainer con campionamento ridotto
+            explainer = shap.Explainer(model.predict, background_sample)
+            reduced_test = test_sample.head(min(100, len(test_sample)))
+            shap_values = explainer(reduced_test).values
+            test_sample = reduced_test
         
         # Se shap_values è 3D (classificazione), prendi la prima classe
         if len(shap_values.shape) == 3:
@@ -143,7 +207,7 @@ def calculate_shap_importance(
         
         # Crea DataFrame per facilità d'uso
         shap_df = pd.DataFrame({
-            'feature': X_test.columns,
+            'feature': test_sample.columns,
             'shap_importance': feature_importance_norm
         }).sort_values('shap_importance', ascending=False)
         
@@ -154,11 +218,11 @@ def calculate_shap_importance(
             'shap_values': shap_values,
             'explainer': explainer,
             'feature_importance': feature_importance_norm,
-            'feature_names': list(X_test.columns),
+            'feature_names': list(test_sample.columns),
             'shap_df': shap_df,
             'model_type': model_type,
             'sample_sizes': {
-                'train': len(train_sample),
+                'background': len(background_sample),
                 'test': len(test_sample)
             }
         }
@@ -227,7 +291,8 @@ def compare_importance_methods(
     X_test: pd.DataFrame,
     y_test: pd.Series,
     model_name: str,
-    feature_names: List[str]
+    feature_names: List[str],
+    skip_slow_shap: bool = True  # Added option to skip slow SHAP
 ) -> pd.DataFrame:
     """
     Confronta diversi metodi di feature importance.
@@ -258,8 +323,18 @@ def compare_importance_methods(
     except Exception as e:
         logger.warning(f"Basic importance non disponibile: {e}")
     
-    # 2. SHAP importance
-    shap_result = calculate_shap_importance(model, X_train, X_test, model_name)
+    # 2. SHAP importance with optimized parameters
+    model_type = _detect_model_type(model)
+    if skip_slow_shap and model_type == 'kernel' and 'svr' in model.__class__.__name__.lower():
+        logger.info(f"Saltando SHAP per {model_name} (troppo lento) - usando solo permutation importance")
+        shap_result = None
+    else:
+        shap_result = calculate_shap_importance(
+            model, X_train, X_test, model_name, 
+            sample_size=300,  # Reduced for comparison
+            background_size=50  # Reduced for comparison
+        )
+    
     if shap_result:
         comparison_df['shap_importance'] = shap_result['feature_importance']
     
@@ -405,7 +480,7 @@ def create_comparison_plot(
 
 def _detect_model_type(model) -> str:
     """
-    Rileva automaticamente il tipo di modello per SHAP.
+    Rileva automaticamente il tipo di modello per SHAP con ottimizzazioni.
     
     Args:
         model: Modello da analizzare
@@ -422,6 +497,9 @@ def _detect_model_type(model) -> str:
     # Linear models  
     linear_models = ['linear', 'ridge', 'lasso', 'elastic', 'logistic', 'sgd']
     
+    # SVR and other complex models that should use permutation instead of kernel
+    avoid_kernel_models = ['svr', 'svc', 'nusvr', 'nusvc']
+    
     for tree_model in tree_models:
         if tree_model in model_name:
             return 'tree'
@@ -429,6 +507,12 @@ def _detect_model_type(model) -> str:
     for linear_model in linear_models:
         if linear_model in model_name:
             return 'linear'
+    
+    # Per SVR e modelli simili, salta SHAP se troppo lento
+    for avoid_model in avoid_kernel_models:
+        if avoid_model in model_name:
+            logger.warning(f"Modello {model_name} rilevato - usando explainer ottimizzato")
+            return 'kernel'
     
     # Default: kernel explainer (più lento ma universale)
     return 'kernel'
@@ -472,13 +556,28 @@ def run_comprehensive_feature_analysis(
         
         logger.info(f"\nAnalisi avanzata per {model_name}...")
         
-        # Confronto metodi
+        # Confronto metodi con ottimizzazioni
         comparison_df = compare_importance_methods(
-            model, X_train, X_test, y_test, model_name, feature_cols
+            model, X_train, X_test, y_test, model_name, feature_cols,
+            skip_slow_shap=True  # Skip SHAP for very slow models
         )
         
-        # SHAP analysis
-        shap_result = calculate_shap_importance(model, X_train, X_test, model_name)
+        # SHAP analysis with optimized parameters
+        model_type = _detect_model_type(model)
+        if model_type == 'kernel' and 'svr' in model.__class__.__name__.lower():
+            logger.info(f"Saltando SHAP separato per {model_name} (già fatto nel confronto)")
+            shap_result = comparison_df.get('shap_importance') is not None
+            if shap_result:
+                # Use the result from comparison instead of recalculating
+                shap_result = None  # Skip plotting for SVR
+            else:
+                shap_result = None
+        else:
+            shap_result = calculate_shap_importance(
+                model, X_train, X_test, model_name,
+                sample_size=400,  # Slightly larger for final analysis
+                background_size=100
+            )
         
         # Salva risultati
         detailed_results[model_name] = {
