@@ -123,7 +123,9 @@ def objective_catboost(trial, X_train, y_train, cv_folds=5, random_state=42, n_j
         'early_stopping_rounds': 50,  # Early stopping per evitare overfitting
         'random_seed': random_state,
         'logging_level': 'Silent',
-        'thread_count': n_jobs if n_jobs > 0 else None
+        'thread_count': n_jobs if n_jobs > 0 else None,
+        'train_dir': None,  # Disabilita la creazione della directory catboost_info
+        'allow_writing_files': False  # Previene la scrittura di file di log
     }
     
     # Parametri aggiuntivi per bootstrap_type
