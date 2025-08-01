@@ -212,7 +212,7 @@ def temporal_sort_by_year_month(
         df_temp = create_composite_date_column(df, year_column, month_column)
         
         # Ordina per data composite
-        df_sorted = df_temp.sort_values('temporal_date', na_last=True).reset_index(drop=True)
+        df_sorted = df_temp.sort_values('temporal_date', na_position='last').reset_index(drop=True)
         
         # Rimuovi colonna temporanea
         if 'temporal_date' in df_sorted.columns:
@@ -224,4 +224,4 @@ def temporal_sort_by_year_month(
     except Exception as e:
         logger.error(f"Errore nell'ordinamento temporale: {e}")
         logger.warning("Fallback: ordinamento per anno e mese separatamente")
-        return df.sort_values([year_column, month_column], na_last=True).reset_index(drop=True)
+        return df.sort_values([year_column, month_column], na_position='last').reset_index(drop=True)
