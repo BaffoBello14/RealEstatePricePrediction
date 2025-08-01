@@ -2,7 +2,6 @@ from sqlalchemy import create_engine, Engine
 import urllib.parse
 import os
 from dotenv import load_dotenv
-from typing import Optional
 from ..utils.logger import get_logger
 
 logger = get_logger(__name__)

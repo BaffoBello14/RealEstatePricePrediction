@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from sklearn.impute import SimpleImputer
-from typing import Tuple, Dict, Any, List
+from typing import Tuple, Dict, Any
 from ..utils.logger import get_logger
 
 logger = get_logger(__name__)

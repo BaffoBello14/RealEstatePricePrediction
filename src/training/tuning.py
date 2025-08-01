@@ -2,13 +2,12 @@
 Ottimizzazione iperparametri con Optuna.
 """
 
-import numpy as np
 import optuna
 import optunahub
 from datetime import datetime
-from typing import Dict, Any, Callable
+from typing import Dict, Any
 from optuna.pruners import MedianPruner
-from sklearn.model_selection import cross_val_score, KFold, TimeSeriesSplit
+from sklearn.model_selection import KFold, TimeSeriesSplit
 from ..utils.logger import get_logger
 from .models import (
     objective_random_forest, objective_gradient_boosting, objective_xgboost,

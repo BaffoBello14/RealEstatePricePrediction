@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-import json
 from typing import Dict, List, Optional, Any, Tuple
 from .connect import get_engine
 from ..utils.logger import get_logger

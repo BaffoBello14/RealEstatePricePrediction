@@ -2,8 +2,7 @@
 Definizione modelli e funzioni obiettivo per Optuna.
 """
 
-import numpy as np
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, VotingRegressor, StackingRegressor, HistGradientBoostingRegressor
 from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet
 from sklearn.tree import DecisionTreeRegressor

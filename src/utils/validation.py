@@ -4,8 +4,7 @@ Modulo di validazione per controlli di qualità sui dati e prevenzione data leak
 
 import pandas as pd
 import numpy as np
-from datetime import datetime, timedelta
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List
 from .logger import get_logger
 
 logger = get_logger(__name__)

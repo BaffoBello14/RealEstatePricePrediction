@@ -3,9 +3,6 @@ Utility per gestire dati temporali con anno e mese separati.
 """
 
 import pandas as pd
-import numpy as np
-from datetime import datetime, timedelta
-from typing import Tuple, Optional
 from .logger import get_logger
 
 logger = get_logger(__name__)
