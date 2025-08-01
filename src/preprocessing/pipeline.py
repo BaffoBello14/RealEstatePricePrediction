@@ -122,7 +122,8 @@ def run_preprocessing_pipeline(
             val_size=config.get('val_size', 0.2),
             random_state=config.get('random_state', 42),
             use_temporal_split=config.get('use_temporal_split', True),
-            date_column=config.get('date_column', 'A_AnnoStipula')
+            year_column=config.get('year_column', 'A_AnnoStipula'),
+            month_column=config.get('month_column', 'A_MeseStipula')
         )
         
         split_info = {
