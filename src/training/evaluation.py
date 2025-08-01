@@ -455,6 +455,9 @@ def run_evaluation_pipeline(training_results: Dict[str, Any], preprocessing_path
         y_test_orig = load_dataframe(preprocessing_paths['test_target_orig']).squeeze()
         y_val_log = load_dataframe(preprocessing_paths['val_target']).squeeze()
         
+        # Carica dati di training per feature importance avanzata
+        X_train = load_dataframe(preprocessing_paths['train_features'])
+        
         # Ottieni feature columns
         feature_cols = X_test.columns.tolist()
         
