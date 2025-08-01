@@ -128,6 +128,7 @@ def objective_catboost(trial, X_train, y_train, cv_folds=5, random_state=42, n_j
         'early_stopping_rounds': 50,  # Early stopping per evitare overfitting
         'random_seed': random_state,
         'verbose': False,
+        'allow_writing_files': False,
         'thread_count': n_jobs if n_jobs > 0 else None
     }
     
