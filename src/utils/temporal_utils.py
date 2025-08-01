@@ -61,9 +61,7 @@ def create_composite_date_column(
         
     except Exception as e:
         logger.error(f"Errore nella creazione date composite: {e}")
-        # Fallback: crea date dummy basate solo sull'anno
-        df_copy['temporal_date'] = pd.to_datetime(year_vals.astype(str) + '-01-01', errors='coerce')
-        return df_copy
+        raise
 
 def calculate_month_gap(
     date1: pd.Timestamp, 
