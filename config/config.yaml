@@ -48,7 +48,10 @@ preprocessing:
   # ==========================================
   # Temporal split per evitare data leakage temporale
   use_temporal_split: true
-  date_column: "A_AnnoStipula"  # Colonna data per split temporale
+  # Configurazione per colonne anno/mese separate (non data completa)
+  year_column: "A_AnnoStipula"  # Colonna anno per split temporale
+  month_column: "A_MeseStipula"  # Colonna mese per split temporale  
+  date_column: "A_AnnoStipula"  # DEPRECATED: mantenuto per compatibilità
   
   # Soglie correlazione
   cramer_threshold: 0.95
@@ -197,4 +200,5 @@ quality_checks:
   
   # NUOVI: Controlli specifici per temporal split
   validate_temporal_split: true
-  min_temporal_gap_days: 30  # Minimo gap temporale tra train/val/test
+  min_temporal_gap_days: 30  # DEPRECATED: mantenuto per compatibilità
+  min_temporal_gap_months: 1  # Minimo gap temporale in mesi tra train/val/test

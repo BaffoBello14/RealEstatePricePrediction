@@ -291,11 +291,27 @@ def run_all_validations(
     
     # 1. Validazione split temporale
     if quality_config.get('validate_temporal_split', True):
-        validation_results['temporal_split'] = validate_temporal_split(
-            X_train, X_val, X_test,
-            date_column=config.get('preprocessing', {}).get('date_column', 'A_DataStipula'),
-            min_gap_days=quality_config.get('min_temporal_gap_days', 30)
-        )
+        # Controlla se abbiamo colonne anno/mese separate
+        preprocessing_config = config.get('preprocessing', {})
+        year_col = preprocessing_config.get('year_column', 'A_AnnoStipula')
+        month_col = preprocessing_config.get('month_column', 'A_MeseStipula')
+        
+        if year_col in X_train.columns and month_col in X_train.columns:
+            # Usa la nuova validazione per anno/mese
+            from .temporal_utils import validate_temporal_split_year_month
+            validation_results['temporal_split'] = validate_temporal_split_year_month(
+                X_train, X_val, X_test,
+                year_column=year_col,
+                month_column=month_col,
+                min_gap_months=quality_config.get('min_temporal_gap_months', 1)
+            )
+        else:
+            # Fallback alla validazione tradizionale
+            validation_results['temporal_split'] = validate_temporal_split(
+                X_train, X_val, X_test,
+                date_column=preprocessing_config.get('date_column', 'A_DataStipula'),
+                min_gap_days=quality_config.get('min_temporal_gap_days', 30)
+            )
     
     # 2. Controllo target leakage
     if quality_config.get('check_target_leakage', True):

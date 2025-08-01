@@ -10,13 +10,15 @@ from ..utils.logger import get_logger
 logger = get_logger(__name__)
 
 def split_dataset_with_validation(
-    df: pd.DataFrame, 
-    target_column: str, 
+    df: pd.DataFrame,
+    target_column: str,
     test_size: float = 0.2,
     val_size: float = 0.18,
     random_state: int = 42,
     use_temporal_split: bool = True,
-    date_column: str = 'A_AnnoStipula'
+    year_column: str = 'A_AnnoStipula',
+    month_column: str = 'A_MeseStipula',
+    date_column: str = 'A_AnnoStipula'  # DEPRECATED: per compatibilità
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.Series, pd.Series, pd.Series, pd.Series, pd.Series, pd.Series]:
     """
     Divide il dataset in train, validation e test.
@@ -28,7 +30,9 @@ def split_dataset_with_validation(
         val_size: Proporzione del validation set (rispetto al train+val)
         random_state: Seed per riproducibilità
         use_temporal_split: Se True usa split temporale, altrimenti casuale
-        date_column: Nome della colonna data per split temporale
+        year_column: Nome della colonna anno per split temporale
+        month_column: Nome della colonna mese per split temporale
+        date_column: DEPRECATED: Nome della colonna data (mantenuto per compatibilità)
         
     Returns:
         Tuple con X_train, X_val, X_test, y_train, y_val, y_test, y_train_orig, y_val_orig, y_test_orig
@@ -47,15 +51,22 @@ def split_dataset_with_validation(
         # Se non disponibile, calcola dalla scala log
         y_orig = np.exp(y)
     
-    if use_temporal_split and date_column in df.columns:
-        logger.info(f"Usando split temporale basato su colonna: {date_column}")
-        
-        # Converte colonna data se necessario
-        if df[date_column].dtype == 'object':
-            df[date_column] = pd.to_datetime(df[date_column], errors='coerce')
-        
-        # Ordina per data
-        df_sorted = df.sort_values(date_column).reset_index(drop=True)
+    # Verifica disponibilità colonne temporali
+    has_year_month = year_column in df.columns and month_column in df.columns
+    has_date_column = date_column in df.columns and date_column != year_column
+    
+    if use_temporal_split and (has_year_month or has_date_column):
+        if has_year_month:
+            logger.info(f"Usando split temporale basato su colonne: {year_column}, {month_column}")
+            # Usa la nuova funzione per ordinamento temporale
+            from ..utils.temporal_utils import temporal_sort_by_year_month
+            df_sorted = temporal_sort_by_year_month(df, year_column, month_column)
+        else:
+            logger.info(f"Usando split temporale basato su colonna data completa: {date_column}")
+            # Fallback per data completa (se disponibile)
+            if df[date_column].dtype == 'object':
+                df[date_column] = pd.to_datetime(df[date_column], errors='coerce')
+            df_sorted = df.sort_values(date_column).reset_index(drop=True)
         X_sorted = df_sorted.drop(columns=[target_column])
         y_sorted = df_sorted[target_column]
         y_orig_sorted = df_sorted[target_orig_column] if target_orig_column in df_sorted.columns else np.exp(y_sorted)
@@ -78,15 +89,26 @@ def split_dataset_with_validation(
         y_val_orig = y_orig_sorted.iloc[val_idx:test_idx].copy()
         y_test_orig = y_orig_sorted.iloc[test_idx:].copy()
         
-        # Log delle date di split
-        logger.info(f"Split temporale - Date range:")
-        logger.info(f"  Train: {df_sorted[date_column].iloc[0]} a {df_sorted[date_column].iloc[val_idx-1]}")
-        logger.info(f"  Val: {df_sorted[date_column].iloc[val_idx]} a {df_sorted[date_column].iloc[test_idx-1]}")
-        logger.info(f"  Test: {df_sorted[date_column].iloc[test_idx]} a {df_sorted[date_column].iloc[-1]}")
+        # Log delle date di split (gestisce sia anno/mese che data completa)
+        if has_year_month:
+            logger.info(f"Split temporale - Range anno/mese:")
+            logger.info(f"  Train: {df_sorted[year_column].iloc[0]}/{df_sorted[month_column].iloc[0]} a {df_sorted[year_column].iloc[val_idx-1]}/{df_sorted[month_column].iloc[val_idx-1]}")
+            logger.info(f"  Val: {df_sorted[year_column].iloc[val_idx]}/{df_sorted[month_column].iloc[val_idx]} a {df_sorted[year_column].iloc[test_idx-1]}/{df_sorted[month_column].iloc[test_idx-1]}")
+            logger.info(f"  Test: {df_sorted[year_column].iloc[test_idx]}/{df_sorted[month_column].iloc[test_idx]} a {df_sorted[year_column].iloc[-1]}/{df_sorted[month_column].iloc[-1]}")
+        else:
+            logger.info(f"Split temporale - Date range:")
+            logger.info(f"  Train: {df_sorted[date_column].iloc[0]} a {df_sorted[date_column].iloc[val_idx-1]}")
+            logger.info(f"  Val: {df_sorted[date_column].iloc[val_idx]} a {df_sorted[date_column].iloc[test_idx-1]}")
+            logger.info(f"  Test: {df_sorted[date_column].iloc[test_idx]} a {df_sorted[date_column].iloc[-1]}")
         
     else:
         if use_temporal_split:
-            logger.warning(f"Colonna data '{date_column}' non trovata. Fallback a split casuale.")
+            missing_cols = []
+            if not has_year_month:
+                missing_cols.append(f"'{year_column}' e '{month_column}'")
+            if not has_date_column:
+                missing_cols.append(f"'{date_column}'")
+            logger.warning(f"Colonne temporali {' e '.join(missing_cols)} non trovate. Fallback a split casuale.")
         
         logger.info("Usando split casuale")
         
