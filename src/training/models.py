@@ -88,7 +88,7 @@ def objective_gradient_boosting(trial, X_train, y_train, cv_folds=5, random_stat
     return -scores.mean()
 
 def objective_xgboost(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1, cv_strategy=None):
-    """Funzione obiettivo per XGBoost con early stopping"""
+    """Funzione obiettivo per XGBoost - RIMOSSO early stopping per cross validation"""
     params = {
         'n_estimators': trial.suggest_int('n_estimators', 100, 1000, step=50),
         'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, log=True),
@@ -99,7 +99,7 @@ def objective_xgboost(trial, X_train, y_train, cv_folds=5, random_state=42, n_jo
         'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
         'reg_alpha': trial.suggest_float('reg_alpha', 0, 10),
         'reg_lambda': trial.suggest_float('reg_lambda', 0, 10),
-        'early_stopping_rounds': 50,  # Early stopping per evitare overfitting
+        # RIMOSSO: early_stopping_rounds incompatibile con cross_val_score
         'random_state': random_state,
         'n_jobs': n_jobs,
         'verbosity': 0,
@@ -118,14 +118,14 @@ def objective_xgboost(trial, X_train, y_train, cv_folds=5, random_state=42, n_jo
     return -scores.mean()
 
 def objective_catboost(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1, cv_strategy=None):
-    """Funzione obiettivo per CatBoost"""
+    """Funzione obiettivo per CatBoost - RIMOSSO early stopping per cross validation"""
     params = {
         'iterations': trial.suggest_int('iterations', 100, 1000, step=50),
         'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, log=True),
         'depth': trial.suggest_int('depth', 4, 10),
         'l2_leaf_reg': trial.suggest_float('l2_leaf_reg', 1, 10),
         'bootstrap_type': trial.suggest_categorical('bootstrap_type', ['Bayesian', 'Bernoulli', 'MVS']),
-        'early_stopping_rounds': 50,  # Early stopping per evitare overfitting
+        # RIMOSSO: early_stopping_rounds incompatibile con cross_val_score
         'random_seed': random_state,
         'verbose': False,
         'allow_writing_files': False,
