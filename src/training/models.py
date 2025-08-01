@@ -126,8 +126,7 @@ def objective_catboost(trial, X_train, y_train, cv_folds=5, random_state=42, n_j
         'bootstrap_type': trial.suggest_categorical('bootstrap_type', ['Bayesian', 'Bernoulli', 'MVS']),
         'early_stopping_rounds': 50,  # Early stopping per evitare overfitting
         'random_seed': random_state,
-        'verbose': False,
-        'logging_level': 'Silent',
+        'logging_level': 'Silent',  # Using only logging_level, removed verbose to avoid conflict
         'thread_count': n_jobs if n_jobs > 0 else None
     }
     
