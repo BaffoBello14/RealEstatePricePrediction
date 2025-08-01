@@ -276,7 +276,7 @@ def compare_importance_methods(
         comparison_df['rank'] = comparison_df['average_importance'].rank(ascending=False)
     
     # Ordina per importanza media
-    comparison_df = comparison_df.sort_values('average_importance', ascending=False, na_position='last')
+    comparison_df = comparison_df.sort_values('average_importance', ascending=False)
     
     return comparison_df
 
