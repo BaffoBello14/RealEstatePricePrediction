@@ -103,13 +103,13 @@ preprocessing:
 
 # Training parametri
 training:
-  # Cross-validation - MIGLIORATA per temporal data
+  # Cross-validation
   cv_folds: 5
   cv_scoring: 'neg_root_mean_squared_error'
   use_time_series_cv: true  # Usa TimeSeriesSplit invece di KFold per temporal data
   
   # Optuna optimization
-  n_trials: 100
+  n_trials: 10
   optuna_timeout: 7200  # 2 ore in secondi
   optuna_pruning_percentile: 25
   
@@ -121,7 +121,7 @@ training:
 
 # Modelli da addestrare
 models:
-  # Baseline models (sempre abilitati)
+  # Baseline models
   baseline:
     linear_regression: true
     ridge: true
@@ -144,12 +144,6 @@ models:
   ensemble:
     voting_regressor: true
     stacking_regressor: true
-
-# Ottimizzazione iperparametri
-tuning:
-  enabled: true
-  n_trials: 100
-  timeout: 3600  # 1 ora
   
 # Logging
 logging:
@@ -166,7 +160,7 @@ execution:
     - training
     - evaluation
   
-  force_reload: true  # Cambiato da true per evitare reload continuo
+  force_reload: true  # Se true reload dei dati anche se già presenti
 
 # Validation e monitoring
 validation:
@@ -182,7 +176,7 @@ validation:
   residual_analysis: true
   residual_plots: true
 
-# Quality checks - AGGIUNTI controlli data leakage
+# Quality checks
 quality_checks:
   # Verifica data leakage
   check_temporal_leakage: true

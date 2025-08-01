@@ -115,8 +115,15 @@ def split_dataset_with_validation(
     train_mean, val_mean, test_mean = y_train.mean(), y_val.mean(), y_test.mean()
     max_drift = max(abs(val_mean - train_mean), abs(test_mean - train_mean)) / train_mean
     
-    if max_drift > 0.1:  # 10% di drift
-        logger.warning(f"⚠️  Drift significativo nella distribuzione target: {max_drift:.3f}")
+    # Soglia differenziata per split temporale vs casuale
+    drift_threshold = 0.15 if use_temporal_split else 0.1  # 15% per temporale, 10% per casuale
+    
+    if max_drift > drift_threshold:
+        if use_temporal_split:
+            logger.warning(f"⚠️  Drift temporale nella distribuzione target: {max_drift:.3f} (>>{drift_threshold:.1%})")
+            logger.warning("   Questo è normale in dati temporali - indica evoluzione prezzi nel tempo")
+        else:
+            logger.warning(f"⚠️  Drift significativo nella distribuzione target: {max_drift:.3f} (>>{drift_threshold:.1%})")
     else:
         logger.info(f"✓ Distribuzione target coerente tra split (drift: {max_drift:.3f})")
     
