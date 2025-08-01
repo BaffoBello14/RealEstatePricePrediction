@@ -13,7 +13,6 @@ from sklearn.model_selection import cross_val_score, KFold
 import xgboost as xgb
 import catboost as cb
 import lightgbm as lgb
-import optuna
 from tabm import TabM
 from ..utils.logger import get_logger
 
@@ -56,7 +55,6 @@ def objective_random_forest(trial, X_train, y_train, cv_folds=5, random_state=42
     
     # Usa cv_strategy se fornito, altrimenti KFold
     if cv_strategy is None:
-        from sklearn.model_selection import KFold
         cv_strategy = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
     
     scores = cross_val_score(model, X_train, y_train, cv=cv_strategy, scoring='neg_root_mean_squared_error', n_jobs=n_jobs)
@@ -80,7 +78,6 @@ def objective_gradient_boosting(trial, X_train, y_train, cv_folds=5, random_stat
     
     # Usa cv_strategy se fornito, altrimenti KFold
     if cv_strategy is None:
-        from sklearn.model_selection import KFold
         cv_strategy = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
     
     scores = cross_val_score(model, X_train, y_train, cv=cv_strategy, scoring='neg_root_mean_squared_error', n_jobs=n_jobs)
@@ -109,7 +106,6 @@ def objective_xgboost(trial, X_train, y_train, cv_folds=5, random_state=42, n_jo
     
     # Usa cv_strategy se fornito, altrimenti KFold
     if cv_strategy is None:
-        from sklearn.model_selection import KFold
         cv_strategy = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
     
     scores = cross_val_score(model, X_train, y_train, cv=cv_strategy, scoring='neg_root_mean_squared_error', n_jobs=n_jobs)
@@ -140,7 +136,6 @@ def objective_catboost(trial, X_train, y_train, cv_folds=5, random_state=42, n_j
     
     # Usa cv_strategy se fornito, altrimenti KFold
     if cv_strategy is None:
-        from sklearn.model_selection import KFold
         cv_strategy = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
     
     scores = cross_val_score(model, X_train, y_train, cv=cv_strategy, scoring='neg_root_mean_squared_error', n_jobs=n_jobs)
@@ -169,7 +164,6 @@ def objective_lightgbm(trial, X_train, y_train, cv_folds=5, random_state=42, n_j
     
     # Usa cv_strategy se fornito, altrimenti KFold
     if cv_strategy is None:
-        from sklearn.model_selection import KFold
         cv_strategy = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
     
     scores = cross_val_score(model, X_train, y_train, cv=cv_strategy, scoring='neg_root_mean_squared_error', n_jobs=n_jobs)
@@ -192,7 +186,6 @@ def objective_hist_gradient_boosting(trial, X_train, y_train, cv_folds=5, random
     
     # Usa cv_strategy se fornito, altrimenti KFold
     if cv_strategy is None:
-        from sklearn.model_selection import KFold
         cv_strategy = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
     
     scores = cross_val_score(model, X_train, y_train, cv=cv_strategy, scoring='neg_root_mean_squared_error', n_jobs=n_jobs)
@@ -221,7 +214,6 @@ def objective_tabm(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=
     
     # Usa cv_strategy se fornito, altrimenti KFold
     if cv_strategy is None:
-        from sklearn.model_selection import KFold
         cv_strategy = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
     
     scores = cross_val_score(model, X_train, y_train, cv=cv_strategy, scoring='neg_root_mean_squared_error', n_jobs=n_jobs)
