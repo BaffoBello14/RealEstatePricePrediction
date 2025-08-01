@@ -108,9 +108,9 @@ training:
   cv_scoring: 'neg_root_mean_squared_error'
   use_time_series_cv: true  # Usa TimeSeriesSplit invece di KFold per temporal data
   
-  # Optuna optimization
-  n_trials: 100
-  optuna_timeout: 7200  # 2 ore in secondi
+  # Optuna optimization - OTTIMIZZATO per stabilità
+  n_trials: 75  # Ridotto da 100 per velocità
+  optuna_timeout: 10800  # Aumentato a 3 ore per XGBoost/CatBoost complessi
   optuna_pruning_percentile: 25
   
   # Parallelization
