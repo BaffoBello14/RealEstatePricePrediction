@@ -88,7 +88,7 @@ def objective_gradient_boosting(trial, X_train, y_train, cv_folds=5, random_stat
     return -scores.mean()
 
 def objective_xgboost(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1, cv_strategy=None):
-    """Funzione obiettivo per XGBoost con early stopping"""
+    """Funzione obiettivo per XGBoost"""
     params = {
         'n_estimators': trial.suggest_int('n_estimators', 100, 1000, step=50),
         'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, log=True),
@@ -99,7 +99,6 @@ def objective_xgboost(trial, X_train, y_train, cv_folds=5, random_state=42, n_jo
         'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
         'reg_alpha': trial.suggest_float('reg_alpha', 0, 10),
         'reg_lambda': trial.suggest_float('reg_lambda', 0, 10),
-        'early_stopping_rounds': 50,  # Early stopping per evitare overfitting
         'random_state': random_state,
         'n_jobs': n_jobs,
         'verbosity': 0,
@@ -213,6 +212,7 @@ def objective_tabm(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=
         'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
         'reg_alpha': trial.suggest_float('reg_alpha', 0, 10),
         'reg_lambda': trial.suggest_float('reg_lambda', 0, 10),
+        'd_out': 1,  # Dimensione output per regressione
         'random_state': random_state,
         'n_jobs': n_jobs,
         'verbosity': 0
