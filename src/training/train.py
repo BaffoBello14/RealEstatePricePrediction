@@ -213,7 +213,7 @@ def evaluate_all_models(X_train, y_train, X_val, y_val, baseline_results: Dict[s
     
     return all_results
 
-def select_best_models(validation_results: Dict[str, Any]) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+def select_best_models(validation_results: Dict[str, Any], config: Dict[str, Any] = None) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """
     Analizza i risultati della validazione e seleziona i migliori modelli.
     
@@ -253,10 +253,14 @@ def select_best_models(validation_results: Dict[str, Any]) -> Tuple[pd.DataFrame
     
     df_results = pd.DataFrame(results_data)
     
-    # Ordina per Val_RMSE (migliore = più basso)
-    df_results = df_results.sort_values('Val_RMSE').reset_index(drop=True)
+    # Ottieni metrica di ranking dal config
+    ranking_metric = config.get('ranking_metric', 'Val_RMSE') if config else 'Val_RMSE'
+    ranking_ascending = config.get('ranking_ascending', True) if config else True
     
-    logger.info("Top 10 modelli per Val_RMSE:")
+    # Ordina dinamicamente
+    df_results = df_results.sort_values(ranking_metric, ascending=ranking_ascending).reset_index(drop=True)
+    
+    logger.info(f"Top 10 modelli per {ranking_metric}:")
     print("\n" + "="*100)
     print(f"{'Rank':<4} {'Model':<30} {'Val_RMSE':<10} {'Val_R²':<8} {'Val_MAE':<9} {'Overfit':<7} {'Time(s)':<8}")
     print("="*100)
@@ -350,7 +354,7 @@ def run_training_pipeline(preprocessing_paths: Dict[str, str], config: Dict[str,
         )
         
         # 7. Selezione migliori modelli
-        df_validation_results, best_models = select_best_models(validation_results)
+        df_validation_results, best_models = select_best_models(validation_results, config)
         
         # 8. Preparazione risultati finali
         training_results = {

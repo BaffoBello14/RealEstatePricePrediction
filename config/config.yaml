@@ -108,6 +108,29 @@ training:
   cv_scoring: 'neg_root_mean_squared_error'
   use_time_series_cv: true  # Usa TimeSeriesSplit invece di KFold per temporal data
   
+  # Optimization metrics
+  optimization_metric: 'neg_root_mean_squared_error'  # Metrica per ottimizzazione Optuna
+  optimization_direction: 'minimize'  # 'minimize' o 'maximize'
+  
+  # Model ranking metrics
+  ranking_metric: 'Val_RMSE'  # Metrica per ranking finale dei modelli
+  ranking_ascending: true  # true per minimizzare, false per massimizzare
+  
+  # ==========================================
+  # ESEMPI DI CONFIGURAZIONE PER DIVERSE METRICHE:
+  # ==========================================
+  # Per ottimizzare R²:
+  # optimization_metric: 'r2'
+  # optimization_direction: 'maximize' 
+  # ranking_metric: 'Val_R2'
+  # ranking_ascending: false
+  #
+  # Per ottimizzare MAE:
+  # optimization_metric: 'neg_mean_absolute_error'
+  # optimization_direction: 'minimize'
+  # ranking_metric: 'Val_MAE' 
+  # ranking_ascending: true
+  
   # Optuna optimization
   n_trials: 10
   optuna_timeout: 7200  # 2 ore in secondi
