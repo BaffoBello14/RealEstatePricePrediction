@@ -107,7 +107,7 @@ training:
   cv_folds: 5
   use_time_series_cv: true  # Usa TimeSeriesSplit invece di KFold per temporal data
   
-  # Optimization metrics (usata per TUTTI i modelli: baseline, advanced, optuna)
+  # Optimization metrics
   optimization_metric: 'neg_root_mean_squared_error'  # Metrica unificata per training e CV
   optimization_direction: 'minimize'  # Direzione ottimizzazione Optuna: 'minimize' o 'maximize'
   
@@ -124,16 +124,10 @@ training:
   # ranking_metric: 'Val_R2'
   # ranking_ascending: false
   #
-  # Per ottimizzare MAE (Mean Absolute Error):
-  # optimization_metric: 'neg_mean_absolute_error'
+  # Per ottimizzare RMSE (Root Mean Squared Error):
+  # optimization_metric: 'neg_root_mean_squared_error'
   # optimization_direction: 'minimize'
-  # ranking_metric: 'Val_MAE' 
-  # ranking_ascending: true
-  #
-  # Per ottimizzare MSE (Mean Squared Error):
-  # optimization_metric: 'neg_mean_squared_error'
-  # optimization_direction: 'minimize'
-  # ranking_metric: 'Val_RMSE'  # Nota: il ranking usa RMSE anche se ottimizziamo MSE
+  # ranking_metric: 'Val_RMSE'
   # ranking_ascending: true
   
   # Optuna optimization
