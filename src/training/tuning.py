@@ -64,7 +64,8 @@ def create_objective_function(model_name: str, X_train, y_train, config: Dict[st
             cv_folds=cv_folds, 
             random_state=random_state, 
             n_jobs=n_jobs,
-            cv_strategy=cv_strategy
+            cv_strategy=cv_strategy,
+            config=config
         )
     
     return objective_with_cv
@@ -104,8 +105,11 @@ def optimize_model(model_name: str, X_train, y_train, config: Dict[str, Any]) ->
             logger.warning(f"AutoSampler non disponibile ({e}), usando TPESampler")
             sampler = optuna.samplers.TPESampler(seed=42)
         
+        # Ottieni direzione dal config
+        direction = config.get('optimization_direction', 'minimize')
+        
         study = optuna.create_study(
-            direction='minimize',
+            direction=direction,
             sampler=sampler,
             pruner=pruner,
             study_name=f"{model_name}_optimization"

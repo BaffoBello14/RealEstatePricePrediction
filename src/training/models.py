@@ -37,7 +37,7 @@ def get_baseline_models(random_state: int = 42) -> Dict[str, Any]:
         'SVR': SVR()
     }
 
-def objective_random_forest(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1, cv_strategy=None):
+def objective_random_forest(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1, cv_strategy=None, config=None):
     """Funzione obiettivo per Random Forest"""
     params = {
         'n_estimators': trial.suggest_int('n_estimators', 100, 1000, step=50),
@@ -56,11 +56,13 @@ def objective_random_forest(trial, X_train, y_train, cv_folds=5, random_state=42
     if cv_strategy is None:
         cv_strategy = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
     
-    scores = cross_val_score(model, X_train, y_train, cv=cv_strategy, scoring='neg_root_mean_squared_error', n_jobs=n_jobs)
+    # Ottieni metrica dal config
+    scoring = config.get('optimization_metric', 'neg_root_mean_squared_error') if config else 'neg_root_mean_squared_error'
+    scores = cross_val_score(model, X_train, y_train, cv=cv_strategy, scoring=scoring, n_jobs=n_jobs)
     
-    return -scores.mean()
+    return scores.mean()
 
-def objective_gradient_boosting(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1, cv_strategy=None):
+def objective_gradient_boosting(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1, cv_strategy=None, config=None):
     """Funzione obiettivo per Gradient Boosting"""
     params = {
         'n_estimators': trial.suggest_int('n_estimators', 100, 1000, step=50),
@@ -79,11 +81,13 @@ def objective_gradient_boosting(trial, X_train, y_train, cv_folds=5, random_stat
     if cv_strategy is None:
         cv_strategy = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
     
-    scores = cross_val_score(model, X_train, y_train, cv=cv_strategy, scoring='neg_root_mean_squared_error', n_jobs=n_jobs)
+    # Ottieni metrica dal config
+    scoring = config.get('optimization_metric', 'neg_root_mean_squared_error') if config else 'neg_root_mean_squared_error'
+    scores = cross_val_score(model, X_train, y_train, cv=cv_strategy, scoring=scoring, n_jobs=n_jobs)
     
-    return -scores.mean()
+    return scores.mean()
 
-def objective_xgboost(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1, cv_strategy=None):
+def objective_xgboost(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1, cv_strategy=None, config=None):
     """Funzione obiettivo per XGBoost"""
     params = {
         'n_estimators': trial.suggest_int('n_estimators', 100, 1000, step=50),
@@ -107,11 +111,13 @@ def objective_xgboost(trial, X_train, y_train, cv_folds=5, random_state=42, n_jo
     if cv_strategy is None:
         cv_strategy = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
     
-    scores = cross_val_score(model, X_train, y_train, cv=cv_strategy, scoring='neg_root_mean_squared_error', n_jobs=n_jobs)
+    # Ottieni metrica dal config
+    scoring = config.get('optimization_metric', 'neg_root_mean_squared_error') if config else 'neg_root_mean_squared_error'
+    scores = cross_val_score(model, X_train, y_train, cv=cv_strategy, scoring=scoring, n_jobs=n_jobs)
     
-    return -scores.mean()
+    return scores.mean()
 
-def objective_catboost(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1, cv_strategy=None):
+def objective_catboost(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1, cv_strategy=None, config=None):
     """Funzione obiettivo per CatBoost"""
     params = {
         'iterations': trial.suggest_int('iterations', 100, 1000, step=50),
@@ -139,11 +145,13 @@ def objective_catboost(trial, X_train, y_train, cv_folds=5, random_state=42, n_j
     if cv_strategy is None:
         cv_strategy = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
     
-    scores = cross_val_score(model, X_train, y_train, cv=cv_strategy, scoring='neg_root_mean_squared_error', n_jobs=n_jobs)
+    # Ottieni metrica dal config
+    scoring = config.get('optimization_metric', 'neg_root_mean_squared_error') if config else 'neg_root_mean_squared_error'
+    scores = cross_val_score(model, X_train, y_train, cv=cv_strategy, scoring=scoring, n_jobs=n_jobs)
     
-    return -scores.mean()
+    return scores.mean()
 
-def objective_lightgbm(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1, cv_strategy=None):
+def objective_lightgbm(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1, cv_strategy=None, config=None):
     """Funzione obiettivo per LightGBM"""
     params = {
         'n_estimators': trial.suggest_int('n_estimators', 100, 1000, step=50),
@@ -167,11 +175,13 @@ def objective_lightgbm(trial, X_train, y_train, cv_folds=5, random_state=42, n_j
     if cv_strategy is None:
         cv_strategy = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
     
-    scores = cross_val_score(model, X_train, y_train, cv=cv_strategy, scoring='neg_root_mean_squared_error', n_jobs=n_jobs)
+    # Ottieni metrica dal config
+    scoring = config.get('optimization_metric', 'neg_root_mean_squared_error') if config else 'neg_root_mean_squared_error'
+    scores = cross_val_score(model, X_train, y_train, cv=cv_strategy, scoring=scoring, n_jobs=n_jobs)
     
-    return -scores.mean()
+    return scores.mean()
 
-def objective_hist_gradient_boosting(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1, cv_strategy=None):
+def objective_hist_gradient_boosting(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1, cv_strategy=None, config=None):
     """Funzione obiettivo per Histogram-based Gradient Boosting"""
     params = {
         'max_iter': trial.suggest_int('max_iter', 100, 1000, step=50),
@@ -189,11 +199,13 @@ def objective_hist_gradient_boosting(trial, X_train, y_train, cv_folds=5, random
     if cv_strategy is None:
         cv_strategy = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
     
-    scores = cross_val_score(model, X_train, y_train, cv=cv_strategy, scoring='neg_root_mean_squared_error', n_jobs=n_jobs)
+    # Ottieni metrica dal config
+    scoring = config.get('optimization_metric', 'neg_root_mean_squared_error') if config else 'neg_root_mean_squared_error'
+    scores = cross_val_score(model, X_train, y_train, cv=cv_strategy, scoring=scoring, n_jobs=n_jobs)
     
-    return -scores.mean()
+    return scores.mean()
 
-def objective_tabm(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1, cv_strategy=None):
+def objective_tabm(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1, cv_strategy=None, config=None):
     """Funzione obiettivo per TabM"""
     params = {
         'n_estimators': trial.suggest_int('n_estimators', 100, 1000, step=50),
@@ -217,9 +229,11 @@ def objective_tabm(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=
     if cv_strategy is None:
         cv_strategy = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
     
-    scores = cross_val_score(model, X_train, y_train, cv=cv_strategy, scoring='neg_root_mean_squared_error', n_jobs=n_jobs)
+    # Ottieni metrica dal config
+    scoring = config.get('optimization_metric', 'neg_root_mean_squared_error') if config else 'neg_root_mean_squared_error'
+    scores = cross_val_score(model, X_train, y_train, cv=cv_strategy, scoring=scoring, n_jobs=n_jobs)
     
-    return -scores.mean()
+    return scores.mean()
 
 def create_model_from_params(model_name: str, params: Dict[str, Any]) -> Any:
     """
