@@ -109,7 +109,7 @@ training:
   use_time_series_cv: true  # Usa TimeSeriesSplit invece di KFold per temporal data
   
   # Optuna optimization
-  n_trials: 10
+  n_trials: 75  # Aumentato da 10 a 75 per migliore esplorazione dello spazio iperparametri
   optuna_timeout: 7200  # 2 ore in secondi
   optuna_pruning_percentile: 25
   
