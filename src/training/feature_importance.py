@@ -173,7 +173,8 @@ def calculate_permutation_importance(
     y_test: pd.Series,
     model_name: str,
     n_repeats: int = 10,
-    random_state: int = 42
+    random_state: int = 42,
+    scoring: str = 'neg_mean_squared_error'
 ) -> Dict[str, Any]:
     """
     Calcola permutation importance.
@@ -197,7 +198,7 @@ def calculate_permutation_importance(
             model, X_test, y_test,
             n_repeats=n_repeats,
             random_state=random_state,
-            scoring='neg_mean_squared_error'
+            scoring=scoring
         )
         
         # Crea DataFrame
@@ -227,7 +228,8 @@ def compare_importance_methods(
     X_test: pd.DataFrame,
     y_test: pd.Series,
     model_name: str,
-    feature_names: List[str]
+    feature_names: List[str],
+    scoring: str = 'neg_mean_squared_error'
 ) -> pd.DataFrame:
     """
     Confronta diversi metodi di feature importance.
@@ -264,7 +266,7 @@ def compare_importance_methods(
         comparison_df['shap_importance'] = shap_result['feature_importance']
     
     # 3. Permutation importance
-    perm_result = calculate_permutation_importance(model, X_test, y_test, model_name)
+    perm_result = calculate_permutation_importance(model, X_test, y_test, model_name, scoring=scoring)
     if perm_result:
         comparison_df['permutation_importance'] = perm_result['importances_mean']
         comparison_df['permutation_std'] = perm_result['importances_std']
@@ -439,7 +441,8 @@ def run_comprehensive_feature_analysis(
     X_test: pd.DataFrame,
     y_test: pd.Series,
     feature_cols: List[str],
-    output_dir: str
+    output_dir: str,
+    scoring: str = 'neg_mean_squared_error'
 ) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """
     Esegue analisi completa delle feature importance.
@@ -474,7 +477,7 @@ def run_comprehensive_feature_analysis(
         
         # Confronto metodi
         comparison_df = compare_importance_methods(
-            model, X_train, X_test, y_test, model_name, feature_cols
+            model, X_train, X_test, y_test, model_name, feature_cols, scoring=scoring
         )
         
         # SHAP analysis

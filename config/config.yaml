@@ -109,7 +109,7 @@ training:
   
   # Optimization metrics
   optimization_metric: 'neg_root_mean_squared_error'  # Metrica unificata per training e CV
-  optimization_direction: 'minimize'  # Direzione ottimizzazione Optuna: 'minimize' o 'maximize'
+  optimization_direction: 'maximize'  # Direzione ottimizzazione Optuna: 'minimize' o 'maximize'
   
   # Model ranking metrics  
   ranking_metric: 'Val_RMSE'  # Metrica per ranking finale dei modelli
@@ -124,11 +124,10 @@ training:
   # ranking_metric: 'Val_R2'
   # ranking_ascending: false
   #
-  # Per ottimizzare RMSE (Root Mean Squared Error):
+  # Per ottimizzare neg_root_mean_squared_error:
   # optimization_metric: 'neg_root_mean_squared_error'
-  # optimization_direction: 'minimize'
+  # optimization_direction: 'maximize'  # MAXIMIZE perché più vicino a 0 è migliore!
   # ranking_metric: 'Val_RMSE'
-  # ranking_ascending: true
   
   # Optuna optimization
   n_trials: 100

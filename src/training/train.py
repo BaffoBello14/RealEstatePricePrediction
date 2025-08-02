@@ -53,7 +53,7 @@ def evaluate_baseline_models(X_train, y_train, config: Dict[str, Any]) -> Dict[s
             scores = cross_val_score(model, X_train, y_train, cv=cv, scoring=scoring, n_jobs=n_jobs)
             
             baseline_results[name] = {
-                'cv_score_mean': scores.mean(),  # Ora restituiamo il valore naturale
+                'cv_score_mean': scores.mean(),  # Score naturale della metrica
                 'cv_score_std': scores.std(),
                 'model': model
             }

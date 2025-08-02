@@ -1,5 +1,11 @@
 """
 Definizione modelli e funzioni obiettivo per Optuna.
+
+NOTA IMPORTANTE SULLA DIREZIONE DI OTTIMIZZAZIONE:
+Le funzioni obiettivo restituiscono sempre scores.mean() perché:
+- Per 'neg_root_mean_squared_error': direction='maximize' (valori più vicini a 0 sono migliori)
+- Per 'r2': direction='maximize' (valori più alti sono migliori)
+- La direzione di ottimizzazione è gestita nella configurazione di Optuna, non nelle funzioni obiettivo.
 """
 
 from typing import Dict, Any

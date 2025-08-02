@@ -106,7 +106,7 @@ def optimize_model(model_name: str, X_train, y_train, config: Dict[str, Any]) ->
             sampler = optuna.samplers.TPESampler(seed=42)
         
         # Ottieni direzione dal config
-        direction = config.get('optimization_direction', 'minimize')
+        direction = config.get('optimization_direction', 'maximize')
         
         study = optuna.create_study(
             direction=direction,
