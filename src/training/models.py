@@ -2,11 +2,10 @@
 Definizione modelli e funzioni obiettivo per Optuna.
 
 NOTA IMPORTANTE SULLA DIREZIONE DI OTTIMIZZAZIONE:
-Le funzioni obiettivo gestiscono automaticamente la direzione di ottimizzazione basata sul config:
-- Per metriche da minimizzare (es. 'neg_root_mean_squared_error'): restituisce scores.mean()
-- Per metriche da massimizzare (es. 'r2'): restituisce -scores.mean() per invertire la direzione
-
-Questo permette a Optuna di ottimizzare correttamente indipendentemente dalla metrica utilizzata.
+Le funzioni obiettivo restituiscono sempre scores.mean() perché:
+- Per 'neg_root_mean_squared_error': direction='maximize' (valori più vicini a 0 sono migliori)
+- Per 'r2': direction='maximize' (valori più alti sono migliori)
+- La direzione di ottimizzazione è gestita nella configurazione di Optuna, non nelle funzioni obiettivo.
 """
 
 from typing import Dict, Any
@@ -63,18 +62,11 @@ def objective_random_forest(trial, X_train, y_train, cv_folds=5, random_state=42
     if cv_strategy is None:
         cv_strategy = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
     
-    # Ottieni metrica e direzione dal config
+    # Ottieni metrica dal config
     scoring = config.get('optimization_metric', 'neg_root_mean_squared_error') if config else 'neg_root_mean_squared_error'
-    optimization_direction = config.get('optimization_direction', 'minimize') if config else 'minimize'
-    
     scores = cross_val_score(model, X_train, y_train, cv=cv_strategy, scoring=scoring, n_jobs=n_jobs)
     
-    # Gestisci la direzione di ottimizzazione
-    # Se la direzione è 'maximize', inverti il segno per far sì che Optuna massimizzi
-    if optimization_direction == 'maximize':
-        return -scores.mean()  # Inverti il segno per massimizzazione
-    else:
-        return scores.mean()   # Mantieni il segno per minimizzazione
+    return scores.mean()
 
 def objective_gradient_boosting(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1, cv_strategy=None, config=None):
     """Funzione obiettivo per Gradient Boosting"""
@@ -95,17 +87,11 @@ def objective_gradient_boosting(trial, X_train, y_train, cv_folds=5, random_stat
     if cv_strategy is None:
         cv_strategy = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
     
-    # Ottieni metrica e direzione dal config
+    # Ottieni metrica dal config
     scoring = config.get('optimization_metric', 'neg_root_mean_squared_error') if config else 'neg_root_mean_squared_error'
-    optimization_direction = config.get('optimization_direction', 'minimize') if config else 'minimize'
-    
     scores = cross_val_score(model, X_train, y_train, cv=cv_strategy, scoring=scoring, n_jobs=n_jobs)
     
-    # Gestisci la direzione di ottimizzazione
-    if optimization_direction == 'maximize':
-        return -scores.mean()  # Inverti il segno per massimizzazione
-    else:
-        return scores.mean()   # Mantieni il segno per minimizzazione
+    return scores.mean()
 
 def objective_xgboost(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1, cv_strategy=None, config=None):
     """Funzione obiettivo per XGBoost"""
@@ -131,17 +117,11 @@ def objective_xgboost(trial, X_train, y_train, cv_folds=5, random_state=42, n_jo
     if cv_strategy is None:
         cv_strategy = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
     
-    # Ottieni metrica e direzione dal config
+    # Ottieni metrica dal config
     scoring = config.get('optimization_metric', 'neg_root_mean_squared_error') if config else 'neg_root_mean_squared_error'
-    optimization_direction = config.get('optimization_direction', 'minimize') if config else 'minimize'
-    
     scores = cross_val_score(model, X_train, y_train, cv=cv_strategy, scoring=scoring, n_jobs=n_jobs)
     
-    # Gestisci la direzione di ottimizzazione
-    if optimization_direction == 'maximize':
-        return -scores.mean()  # Inverti il segno per massimizzazione
-    else:
-        return scores.mean()   # Mantieni il segno per minimizzazione
+    return scores.mean()
 
 def objective_catboost(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1, cv_strategy=None, config=None):
     """Funzione obiettivo per CatBoost"""
@@ -171,17 +151,11 @@ def objective_catboost(trial, X_train, y_train, cv_folds=5, random_state=42, n_j
     if cv_strategy is None:
         cv_strategy = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
     
-    # Ottieni metrica e direzione dal config
+    # Ottieni metrica dal config
     scoring = config.get('optimization_metric', 'neg_root_mean_squared_error') if config else 'neg_root_mean_squared_error'
-    optimization_direction = config.get('optimization_direction', 'minimize') if config else 'minimize'
-    
     scores = cross_val_score(model, X_train, y_train, cv=cv_strategy, scoring=scoring, n_jobs=n_jobs)
     
-    # Gestisci la direzione di ottimizzazione
-    if optimization_direction == 'maximize':
-        return -scores.mean()  # Inverti il segno per massimizzazione
-    else:
-        return scores.mean()   # Mantieni il segno per minimizzazione
+    return scores.mean()
 
 def objective_lightgbm(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1, cv_strategy=None, config=None):
     """Funzione obiettivo per LightGBM"""
@@ -207,17 +181,11 @@ def objective_lightgbm(trial, X_train, y_train, cv_folds=5, random_state=42, n_j
     if cv_strategy is None:
         cv_strategy = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
     
-    # Ottieni metrica e direzione dal config
+    # Ottieni metrica dal config
     scoring = config.get('optimization_metric', 'neg_root_mean_squared_error') if config else 'neg_root_mean_squared_error'
-    optimization_direction = config.get('optimization_direction', 'minimize') if config else 'minimize'
-    
     scores = cross_val_score(model, X_train, y_train, cv=cv_strategy, scoring=scoring, n_jobs=n_jobs)
     
-    # Gestisci la direzione di ottimizzazione
-    if optimization_direction == 'maximize':
-        return -scores.mean()  # Inverti il segno per massimizzazione
-    else:
-        return scores.mean()   # Mantieni il segno per minimizzazione
+    return scores.mean()
 
 def objective_hist_gradient_boosting(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1, cv_strategy=None, config=None):
     """Funzione obiettivo per Histogram-based Gradient Boosting"""
@@ -237,17 +205,11 @@ def objective_hist_gradient_boosting(trial, X_train, y_train, cv_folds=5, random
     if cv_strategy is None:
         cv_strategy = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
     
-    # Ottieni metrica e direzione dal config
+    # Ottieni metrica dal config
     scoring = config.get('optimization_metric', 'neg_root_mean_squared_error') if config else 'neg_root_mean_squared_error'
-    optimization_direction = config.get('optimization_direction', 'minimize') if config else 'minimize'
-    
     scores = cross_val_score(model, X_train, y_train, cv=cv_strategy, scoring=scoring, n_jobs=n_jobs)
     
-    # Gestisci la direzione di ottimizzazione
-    if optimization_direction == 'maximize':
-        return -scores.mean()  # Inverti il segno per massimizzazione
-    else:
-        return scores.mean()   # Mantieni il segno per minimizzazione
+    return scores.mean()
 
 def objective_tabm(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1, cv_strategy=None, config=None):
     """Funzione obiettivo per TabM"""
@@ -273,17 +235,11 @@ def objective_tabm(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=
     if cv_strategy is None:
         cv_strategy = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
     
-    # Ottieni metrica e direzione dal config
+    # Ottieni metrica dal config
     scoring = config.get('optimization_metric', 'neg_root_mean_squared_error') if config else 'neg_root_mean_squared_error'
-    optimization_direction = config.get('optimization_direction', 'minimize') if config else 'minimize'
-    
     scores = cross_val_score(model, X_train, y_train, cv=cv_strategy, scoring=scoring, n_jobs=n_jobs)
     
-    # Gestisci la direzione di ottimizzazione
-    if optimization_direction == 'maximize':
-        return -scores.mean()  # Inverti il segno per massimizzazione
-    else:
-        return scores.mean()   # Mantieni il segno per minimizzazione
+    return scores.mean()
 
 def create_model_from_params(model_name: str, params: Dict[str, Any]) -> Any:
     """

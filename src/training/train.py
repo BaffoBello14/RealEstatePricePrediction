@@ -47,25 +47,18 @@ def evaluate_baseline_models(X_train, y_train, config: Dict[str, Any]) -> Dict[s
     
     # Ottieni metrica unificata dal config
     scoring = config.get('optimization_metric', 'neg_root_mean_squared_error')
-    optimization_direction = config.get('optimization_direction', 'minimize')
     
     for name, model in baseline_models.items():
         try:
             scores = cross_val_score(model, X_train, y_train, cv=cv, scoring=scoring, n_jobs=n_jobs)
             
-            # Gestisci la direzione di ottimizzazione per coerenza
-            if optimization_direction == 'maximize':
-                cv_score_mean = -scores.mean()  # Inverti per massimizzazione
-            else:
-                cv_score_mean = scores.mean()   # Mantieni per minimizzazione
-            
             baseline_results[name] = {
-                'cv_score_mean': cv_score_mean,  # Score corretto per direzione
+                'cv_score_mean': scores.mean(),  # Score naturale della metrica
                 'cv_score_std': scores.std(),
                 'model': model
             }
             
-            logger.info(f"{name}: {cv_score_mean:.6f} ± {scores.std():.6f}")
+            logger.info(f"{name}: {scores.mean():.6f} ± {scores.std():.6f}")
             
         except Exception as e:
             logger.error(f"Errore con {name}: {str(e)}")
