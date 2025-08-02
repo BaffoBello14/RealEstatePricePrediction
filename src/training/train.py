@@ -45,17 +45,20 @@ def evaluate_baseline_models(X_train, y_train, config: Dict[str, Any]) -> Dict[s
         logger.info("Usando KFold standard")
         cv = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
     
+    # Ottieni metrica unificata dal config
+    scoring = config.get('optimization_metric', 'neg_root_mean_squared_error')
+    
     for name, model in baseline_models.items():
         try:
-            scores = cross_val_score(model, X_train, y_train, cv=cv, scoring='neg_root_mean_squared_error', n_jobs=n_jobs)
+            scores = cross_val_score(model, X_train, y_train, cv=cv, scoring=scoring, n_jobs=n_jobs)
             
             baseline_results[name] = {
-                'cv_score_mean': -scores.mean(),
+                'cv_score_mean': scores.mean(),  # Ora restituiamo il valore naturale
                 'cv_score_std': scores.std(),
                 'model': model
             }
             
-            logger.info(f"{name}: {-scores.mean():.6f} ± {scores.std():.6f}")
+            logger.info(f"{name}: {scores.mean():.6f} ± {scores.std():.6f}")
             
         except Exception as e:
             logger.error(f"Errore con {name}: {str(e)}")

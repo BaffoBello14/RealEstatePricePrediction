@@ -105,30 +105,35 @@ preprocessing:
 training:
   # Cross-validation
   cv_folds: 5
-  cv_scoring: 'neg_root_mean_squared_error'
   use_time_series_cv: true  # Usa TimeSeriesSplit invece di KFold per temporal data
   
-  # Optimization metrics
-  optimization_metric: 'neg_root_mean_squared_error'  # Metrica per ottimizzazione Optuna
-  optimization_direction: 'minimize'  # 'minimize' o 'maximize'
+  # Optimization metrics (usata per TUTTI i modelli: baseline, advanced, optuna)
+  optimization_metric: 'neg_root_mean_squared_error'  # Metrica unificata per training e CV
+  optimization_direction: 'minimize'  # Direzione ottimizzazione Optuna: 'minimize' o 'maximize'
   
-  # Model ranking metrics
+  # Model ranking metrics  
   ranking_metric: 'Val_RMSE'  # Metrica per ranking finale dei modelli
-  ranking_ascending: true  # true per minimizzare, false per massimizzare
+  ranking_ascending: true  # Ordinamento: true per minimizzare, false per massimizzare
   
   # ==========================================
   # ESEMPI DI CONFIGURAZIONE PER DIVERSE METRICHE:
   # ==========================================
-  # Per ottimizzare R²:
+  # Per ottimizzare R² (coefficiente di determinazione):
   # optimization_metric: 'r2'
   # optimization_direction: 'maximize' 
   # ranking_metric: 'Val_R2'
   # ranking_ascending: false
   #
-  # Per ottimizzare MAE:
+  # Per ottimizzare MAE (Mean Absolute Error):
   # optimization_metric: 'neg_mean_absolute_error'
   # optimization_direction: 'minimize'
   # ranking_metric: 'Val_MAE' 
+  # ranking_ascending: true
+  #
+  # Per ottimizzare MSE (Mean Squared Error):
+  # optimization_metric: 'neg_mean_squared_error'
+  # optimization_direction: 'minimize'
+  # ranking_metric: 'Val_RMSE'  # Nota: il ranking usa RMSE anche se ottimizziamo MSE
   # ranking_ascending: true
   
   # Optuna optimization
