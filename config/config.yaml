@@ -93,8 +93,8 @@ preprocessing:
   # CONFIGURAZIONI SPLIT
   # ==========================================
   # Split
-  test_size: 0.2
-  val_size: 0.2
+  test_size: 0.1  # Ridotto da 0.2 a 0.1 (10% del dataset totale)
+  val_size: 0.22  # Aumentato da 0.2 a 0.22 per ottenere ~20% del dataset totale
   random_state: 42
   
   # Stratificazione split (per target continuo) - DISABILITATA per temporal split
@@ -109,7 +109,7 @@ training:
   use_time_series_cv: true  # Usa TimeSeriesSplit invece di KFold per temporal data
   
   # Optuna optimization
-  n_trials: 10
+  n_trials: 75  # Aumentato da 10 a 75 per migliore esplorazione dello spazio iperparametri
   optuna_timeout: 7200  # 2 ore in secondi
   optuna_pruning_percentile: 25
   
