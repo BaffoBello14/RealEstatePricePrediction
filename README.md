@@ -215,13 +215,15 @@ python -c "from src.utils.io import load_config; print(load_config())"
 
 ## TODO
 
-- [ ] Implementare moduli di training (`src/training/`)
-- [ ] Aggiungere cross-validation
-- [ ] Implementare ensemble methods
-- [ ] Aggiungere metriche di valutazione
+- [x] ~~Implementare moduli di training (`src/training/`)~~ ✅ Completato
+- [x] ~~Aggiungere cross-validation~~ ✅ Completato  
+- [x] ~~Implementare ensemble methods~~ ✅ Completato
+- [x] ~~Aggiungere metriche di valutazione~~ ✅ Completato
 - [ ] Creare dashboard di monitoraggio
-- [ ] Aggiungere unit tests
-- [ ] Ottimizzazione performance
+- [ ] Aggiungere unit tests completi
+- [ ] Ottimizzazione performance per dataset grandi
+- [ ] Implementare pipeline MLOps con CI/CD
+- [ ] Aggiungere feature engineering automatico
 
 ## Requisiti Sistema
 
