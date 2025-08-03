@@ -46,8 +46,8 @@ def split_dataset_with_validation(
     if target_orig_column in df.columns:
         y_orig = df[target_orig_column]
     else:
-        # Se non disponibile, calcola dalla scala log
-        y_orig = np.exp(y)
+        # Se non disponibile, calcola dalla scala log - FIXED: uso expm1 per invertire log1p
+        y_orig = np.expm1(y)
     
     # Verifica disponibilità colonne temporali
     has_year_month = year_column in df.columns and month_column in df.columns
@@ -59,7 +59,7 @@ def split_dataset_with_validation(
         df_sorted = temporal_sort_by_year_month(df, year_column, month_column)
         X_sorted = df_sorted.drop(columns=[target_column])
         y_sorted = df_sorted[target_column]
-        y_orig_sorted = df_sorted[target_orig_column] if target_orig_column in df_sorted.columns else np.exp(y_sorted)
+        y_orig_sorted = df_sorted[target_orig_column] if target_orig_column in df_sorted.columns else np.expm1(y_sorted)
         
         # Calcola gli indici di split temporale
         n_samples = len(df_sorted)

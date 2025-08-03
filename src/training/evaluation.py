@@ -99,8 +99,8 @@ def evaluate_on_test_set(best_models: Dict[str, Any], X_test, y_test_log, y_test
             test_mae_log = mean_absolute_error(y_test_log, y_pred_test_log)
             test_mape_log = mean_absolute_percentage_error(y_test_log, y_pred_test_log) * 100
 
-            # Scala originale
-            y_pred_test_orig = np.exp(y_pred_test_log)
+            # Scala originale - FIXED: uso expm1 invece di exp per invertire log1p
+            y_pred_test_orig = np.expm1(y_pred_test_log)
 
             # Metriche originali
             test_rmse_orig = np.sqrt(mean_squared_error(y_test_orig, y_pred_test_orig))
