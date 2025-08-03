@@ -101,10 +101,15 @@ def evaluate_on_test_set(best_models: Dict[str, Any], X_test, y_test_log, y_test
             test_mape_log = mean_absolute_percentage_error(y_test_log, y_pred_test_log) * 100
 
             # Determina se la trasformazione logaritmica è stata applicata
-            log_transform_applied = False
+            log_transform_applied = True  # Default per compatibilità con versioni precedenti
             if preprocessing_info and 'steps_info' in preprocessing_info:
                 log_info = preprocessing_info['steps_info'].get('log_transformation', {})
-                log_transform_applied = log_info.get('applied', True) and not log_info.get('skipped', False)
+                # Controlla sia 'applied' che 'target_files_contain_log_values' per maggiore robustezza
+                log_transform_applied = (
+                    log_info.get('applied', True) and 
+                    not log_info.get('skipped', False) and
+                    log_info.get('target_files_contain_log_values', True)
+                )
             
             # Scala originale - applica trasformazione inversa solo se necessario
             if log_transform_applied:

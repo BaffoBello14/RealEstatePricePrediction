@@ -30,7 +30,7 @@ preprocessing:
     # TRASFORMAZIONE LOGARITMICA
     # FIXED: Corretti i bug nella trasformazione inversa (era np.exp invece di np.expm1)
     # Ora funziona correttamente sia con true che con false
-    enable_log_transformation: false
+    enable_log_transformation: true
     enable_outlier_detection: true
     enable_pca: false
   
