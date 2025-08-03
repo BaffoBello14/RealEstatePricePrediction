@@ -1,4 +1,4 @@
-# 🏠 ML Pipeline per Analisi Immobiliare
+# 🏠 Real Estate Price Prediction
 
 [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://python.org)
 [![scikit-learn](https://img.shields.io/badge/scikit--learn-1.0+-orange.svg)](https://scikit-learn.org)
@@ -101,7 +101,7 @@ RealEstatePricePrediction/
 
 ```bash
 # 1. Clona e setup
-git clone <repository-url>
+git clone <https://github.com/BaffoBello14/RealEstatePricePrediction>
 cd ml_project
 python -m venv venv
 source venv/bin/activate  # Linux/Mac
@@ -183,10 +183,6 @@ SERVER=your_server_name
 DATABASE=your_database_name
 USER=your_username
 PASSWORD=your_secure_password
-
-# Opzionali
-DRIVER="ODBC Driver 18 for SQL Server"
-TRUST_CERT="yes"
 ```
 
 ### 4. Verifica Installazione
@@ -1183,15 +1179,6 @@ Le contribuzioni sono benvenute! Per contribuire:
 - Segui le convenzioni di naming del progetto
 - Documenta le API pubbliche
 - Esegui `make lint` prima del commit
-
-## 📞 Supporto
-
-Per supporto e domande:
-
-- 📧 **Email**: [inserire email di contatto]
-- 🐛 **Issues**: [Apri una issue su GitHub](repository-url/issues)
-- 📖 **Wiki**: [Documentazione estesa](repository-url/wiki)
-- 💬 **Discussions**: [Community discussions](repository-url/discussions)
 
 ---
 

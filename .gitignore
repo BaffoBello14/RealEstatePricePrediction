@@ -124,5 +124,5 @@ runs/
 # IPython history
 .history
 
-# Optional: Colab artifacts
-*.ipynb-jupyter.json
+# Optional: Catboost model directory
+catboost_info/
