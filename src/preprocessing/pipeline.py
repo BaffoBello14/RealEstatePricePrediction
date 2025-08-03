@@ -246,6 +246,7 @@ def run_preprocessing_pipeline(
             X_train_clean = X_train_scaled
             y_train_clean = y_train_log
             preprocessing_info['steps_info']['outlier_detection'] = {'outliers_removed': 0, 'log_transform_only': True}
+            preprocessing_info['steps_info']['log_transformation'] = {'applied': True, 'method': 'log1p', 'log_transform_only': True}
         else:
             logger.info("Step 11: Trasformazione log e outlier detection DISABILITATE")
             y_train_log = y_train
@@ -254,6 +255,7 @@ def run_preprocessing_pipeline(
             X_train_clean = X_train_scaled
             y_train_clean = y_train_log
             preprocessing_info['steps_info']['outlier_detection'] = {'skipped': True}
+            preprocessing_info['steps_info']['log_transformation'] = {'skipped': True}
         
         # ===== STEP 12: PCA (se abilitato) =====
         if steps_config.get('enable_pca', False):
