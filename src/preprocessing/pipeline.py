@@ -174,7 +174,10 @@ def run_preprocessing_pipeline(
         use_separate_functions = steps_config.get('use_separate_log_outlier_functions', False)
         
         if enable_log or enable_outliers:
-            if use_separate_functions:
+            # Forza l'uso di funzioni separate se la trasformazione log è disabilitata
+            # per evitare che la funzione combinata applichi sempre la trasformazione log
+            force_separate = not enable_log and enable_outliers
+            if use_separate_functions or force_separate:
                 # Usa funzioni separate per maggiore flessibilità
                 logger.info("Step 11: Usando funzioni separate per trasformazione log e outlier detection...")
                 
@@ -184,7 +187,11 @@ def run_preprocessing_pipeline(
                     preprocessing_info['steps_info']['log_transformation'] = transform_info
                 else:
                     y_train_log = y_train
-                    preprocessing_info['steps_info']['log_transformation'] = {'skipped': True}
+                    preprocessing_info['steps_info']['log_transformation'] = {
+                        'skipped': True,
+                        'applied': False,
+                        'target_files_contain_log_values': False
+                    }
                 
                 if enable_outliers:
                     logger.info("Step 11b: Outlier detection...")
@@ -246,14 +253,28 @@ def run_preprocessing_pipeline(
             X_train_clean = X_train_scaled
             y_train_clean = y_train_log
             preprocessing_info['steps_info']['outlier_detection'] = {'outliers_removed': 0, 'log_transform_only': True}
+            preprocessing_info['steps_info']['log_transformation'] = {
+                'applied': True, 
+                'method': 'log1p', 
+                'log_transform_only': True,
+                'target_files_contain_log_values': True
+            }
         else:
             logger.info("Step 11: Trasformazione log e outlier detection DISABILITATE")
+            # Nota: nonostante il nome "_log", questi contengono i valori originali
+            # quando la trasformazione logaritmica è disabilitata
             y_train_log = y_train
             y_val_log = y_val
             y_test_log = y_test
             X_train_clean = X_train_scaled
             y_train_clean = y_train_log
             preprocessing_info['steps_info']['outlier_detection'] = {'skipped': True}
+            preprocessing_info['steps_info']['log_transformation'] = {
+                'skipped': True,
+                'applied': False,
+                'target_files_contain_log_values': False,
+                'note': 'Files named *_log contain original scale values when log transformation is disabled'
+            }
         
         # ===== STEP 12: PCA (se abilitato) =====
         if steps_config.get('enable_pca', False):
@@ -298,6 +319,8 @@ def run_preprocessing_pipeline(
             X_test_final = pd.DataFrame(X_test_final, columns=feature_columns)
         
         # Prepara target per salvataggio
+        # Nota: il nome 'target_log' è mantenuto per compatibilità, ma potrebbe contenere
+        # valori originali se enable_log_transformation=false
         y_train_df = pd.DataFrame({'target_log': y_train_clean})
         y_val_df = pd.DataFrame({'target_log': y_val_log})
         y_test_df = pd.DataFrame({'target_log': y_test_log})

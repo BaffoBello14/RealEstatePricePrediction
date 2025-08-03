@@ -260,7 +260,7 @@ class TestPipelineDataFlow:
             }
         }
         
-        test_results = evaluate_on_test_set(best_models, X_test, y_test, np.exp(y_test))
+        test_results = evaluate_on_test_set(best_models, X_test, y_test, np.expm1(y_test))
         
         # 5. Feature importance
         importance_df, importance_summary = calculate_feature_importance(

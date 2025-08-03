@@ -54,7 +54,7 @@ def calculate_feature_importance(
         logger.info("Usando analisi feature importance di base...")
         return calculate_basic_feature_importance(best_models, feature_cols)
 
-def evaluate_on_test_set(best_models: Dict[str, Any], X_test, y_test_log, y_test_orig) -> Dict[str, Any]:
+def evaluate_on_test_set(best_models: Dict[str, Any], X_test, y_test_log, y_test_orig, preprocessing_info: Dict[str, Any] = None) -> Dict[str, Any]:
     """
     Valuta i modelli migliori sul test set finale.
     
@@ -63,6 +63,7 @@ def evaluate_on_test_set(best_models: Dict[str, Any], X_test, y_test_log, y_test
         X_test: Features del test set
         y_test_log: Target test in scala logaritmica
         y_test_orig: Target test in scala originale
+        preprocessing_info: Informazioni sui passi di preprocessing applicati
         
     Returns:
         Dictionary con risultati del test set
@@ -99,8 +100,24 @@ def evaluate_on_test_set(best_models: Dict[str, Any], X_test, y_test_log, y_test
             test_mae_log = mean_absolute_error(y_test_log, y_pred_test_log)
             test_mape_log = mean_absolute_percentage_error(y_test_log, y_pred_test_log) * 100
 
-            # Scala originale - FIXED: uso expm1 invece di exp per invertire log1p
-            y_pred_test_orig = np.expm1(y_pred_test_log)
+            # Determina se la trasformazione logaritmica è stata applicata
+            log_transform_applied = True  # Default per compatibilità con versioni precedenti
+            if preprocessing_info and 'steps_info' in preprocessing_info:
+                log_info = preprocessing_info['steps_info'].get('log_transformation', {})
+                # Controlla sia 'applied' che 'target_files_contain_log_values' per maggiore robustezza
+                log_transform_applied = (
+                    log_info.get('applied', True) and 
+                    not log_info.get('skipped', False) and
+                    log_info.get('target_files_contain_log_values', True)
+                )
+            
+            # Scala originale - applica trasformazione inversa solo se necessario
+            if log_transform_applied:
+                y_pred_test_orig = np.expm1(y_pred_test_log)  # Inverso di log1p
+                logger.debug(f"Applicata trasformazione inversa expm1 per {alias}")
+            else:
+                y_pred_test_orig = y_pred_test_log.copy()  # Nessuna trasformazione
+                logger.debug(f"Nessuna trasformazione inversa applicata per {alias}")
 
             # Metriche originali
             test_rmse_orig = np.sqrt(mean_squared_error(y_test_orig, y_pred_test_orig))
@@ -458,6 +475,17 @@ def run_evaluation_pipeline(training_results: Dict[str, Any], preprocessing_path
         # Carica dati di training per feature importance avanzata
         X_train = load_dataframe(preprocessing_paths['train_features'])
         
+        # Carica informazioni di preprocessing
+        from ..utils.io import load_json
+        preprocessing_info = None
+        if 'preprocessing_info' in preprocessing_paths:
+            try:
+                preprocessing_info = load_json(preprocessing_paths['preprocessing_info'])
+                logger.info("Informazioni di preprocessing caricate con successo")
+            except Exception as e:
+                logger.warning(f"Impossibile caricare preprocessing_info: {e}")
+                preprocessing_info = None
+        
         # Ottieni feature columns
         feature_cols = X_test.columns.tolist()
         
@@ -474,7 +502,7 @@ def run_evaluation_pipeline(training_results: Dict[str, Any], preprocessing_path
         
         # 2. Valutazione su test set
         test_results = evaluate_on_test_set(
-            training_results['best_models'], X_test, y_test_log, y_test_orig
+            training_results['best_models'], X_test, y_test_log, y_test_orig, preprocessing_info
         )
         
         # 3. Crea grafici di analisi
