@@ -258,7 +258,8 @@ def main():
                     'val_target': f"{paths.get('data_processed', 'data/processed/')}y_val.parquet",
                     'test_target': f"{paths.get('data_processed', 'data/processed/')}y_test.parquet",
                     'val_target_orig': f"{paths.get('data_processed', 'data/processed/')}y_val_orig.parquet",
-                    'test_target_orig': f"{paths.get('data_processed', 'data/processed/')}y_test_orig.parquet"
+                    'test_target_orig': f"{paths.get('data_processed', 'data/processed/')}y_test_orig.parquet",
+                    'preprocessing_info': f"{paths.get('data_processed', 'data/processed/')}preprocessing_info.json"
                 }
             training_results = run_training(config, preprocessing_paths)
         

@@ -50,7 +50,7 @@ class TestEvaluation:
         split_idx = int(0.8 * len(X))
         X_test = X[split_idx:]
         y_test_log = y[split_idx:]
-        y_test_orig = np.exp(y_test_log)  # Simula scala originale
+        y_test_orig = np.expm1(y_test_log)  # Simula scala originale (inverso di log1p)
         
         results = evaluate_on_test_set(best_models, X_test, y_test_log, y_test_orig)
         
@@ -75,7 +75,7 @@ class TestEvaluation:
         split_idx = int(0.8 * len(X))
         X_test = X[split_idx:]
         y_test_log = y[split_idx:]
-        y_test_orig = np.exp(y_test_log)
+        y_test_orig = np.expm1(y_test_log)
         
         # Nessun modello
         results = evaluate_on_test_set({}, X_test, y_test_log, y_test_orig)
@@ -130,7 +130,7 @@ class TestEvaluation:
         split_idx = int(0.8 * len(X))
         X_test = X[split_idx:]
         y_test_log = y[split_idx:]
-        y_test_orig = np.exp(y_test_log)
+        y_test_orig = np.expm1(y_test_log)
         
         # Dovrebbe gestire l'errore gracefully
         results = evaluate_on_test_set(best_models, X_test, y_test_log, y_test_orig)
@@ -303,7 +303,7 @@ class TestEvaluationIntegration:
         split_idx = int(0.8 * len(X))
         X_test = X[split_idx:]
         y_test_log = y[split_idx:]
-        y_test_orig = np.exp(y_test_log)
+        y_test_orig = np.expm1(y_test_log)
         
         # 4. Evaluation
         test_results = evaluate_on_test_set(best_models, X_test, y_test_log, y_test_orig)
@@ -342,7 +342,7 @@ class TestEvaluationIntegration:
         split_idx = int(0.8 * len(X))
         X_test = X[split_idx:]
         y_test_log = y[split_idx:]
-        y_test_orig = np.exp(y_test_log)
+        y_test_orig = np.expm1(y_test_log)
         
         results = evaluate_on_test_set(best_models, X_test, y_test_log, y_test_orig)
         
@@ -416,7 +416,7 @@ class TestEvaluationIntegration:
         split_idx = int(0.8 * len(X))
         X_test = X[split_idx:]
         y_test_log = y[split_idx:]
-        y_test_orig = np.exp(y_test_log)
+        y_test_orig = np.expm1(y_test_log)
         
         results = evaluate_on_test_set(best_models, X_test, y_test_log, y_test_orig)
         
@@ -449,7 +449,7 @@ class TestEvaluationErrorHandling:
         split_idx = int(0.8 * len(X))
         X_test = X[split_idx:]
         y_test_log = y[split_idx:]
-        y_test_orig = np.exp(y_test_log)
+        y_test_orig = np.expm1(y_test_log)
         
         # Dovrebbe gestire NaN gracefully
         results = evaluate_on_test_set(best_models, X_test, y_test_log, y_test_orig)
@@ -492,7 +492,7 @@ class TestEvaluationErrorHandling:
         split_idx = int(0.8 * len(X))
         X_test = X[split_idx:]
         y_test_log = y[split_idx:]
-        y_test_orig = np.exp(y_test_log)
+        y_test_orig = np.expm1(y_test_log)
         
         # Dovrebbe gestire l'errore di dimensioni
         try:
