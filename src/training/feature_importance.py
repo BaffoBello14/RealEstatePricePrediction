@@ -7,12 +7,38 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import shap
+import warnings
 from typing import Dict, Any, List, Tuple, Optional
 from sklearn.metrics import mean_squared_error
 from sklearn.inspection import permutation_importance
 from ..utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+def _create_feature_aware_predictor(model, feature_names: List[str]):
+    """
+    Crea un wrapper per il modello che gestisce correttamente i feature names.
+    
+    Args:
+        model: Modello da wrappare
+        feature_names: Lista dei nomi delle feature
+        
+    Returns:
+        Funzione wrapper per le predizioni
+    """
+    def predict_wrapper(X):
+        # Converti in DataFrame se necessario per mantenere feature names
+        if isinstance(X, np.ndarray):
+            X_df = pd.DataFrame(X, columns=feature_names)
+        else:
+            X_df = X
+        
+        # Sopprimi i warning sui feature names durante SHAP
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message=".*valid feature names.*")
+            return model.predict(X_df)
+    
+    return predict_wrapper
 
 def calculate_basic_feature_importance(best_models: Dict[str, Any], feature_cols: List[str]) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
@@ -45,6 +71,10 @@ def calculate_basic_feature_importance(best_models: Dict[str, Any], feature_cols
             elif hasattr(model, 'coef_'):
                 importance = np.abs(model.coef_)
                 method = "abs(coef_)"
+            elif 'Ensemble' in model_name or 'Stacking' in model_name:
+                # Usa il metodo veloce per ensemble models
+                importance = get_ensemble_feature_importance_fast(model, feature_cols, model_name)
+                method = "ensemble_fast"
             
             if importance is not None:
                 # Normalizza importanze
@@ -84,10 +114,10 @@ def calculate_shap_importance(
     X_test: pd.DataFrame, 
     model_name: str,
     model_type: str = 'auto',
-    sample_size: int = 1000
+    sample_size: int = 100  # Ridotto da 1000 per velocizzare
 ) -> Dict[str, Any]:
     """
-    Calcola SHAP values per un modello.
+    Calcola SHAP values per un modello con ottimizzazioni per velocità.
     
     Args:
         model: Modello addestrato
@@ -95,7 +125,7 @@ def calculate_shap_importance(
         X_test: Test features per spiegazioni
         model_name: Nome del modello
         model_type: Tipo di explainer ('tree', 'linear', 'kernel', 'auto')
-        sample_size: Numero di campioni per calcolo
+        sample_size: Numero di campioni per calcolo (default ridotto per velocità)
         
     Returns:
         Dictionary con SHAP values e informazioni
@@ -103,14 +133,25 @@ def calculate_shap_importance(
     logger.info(f"Calcolo SHAP values per {model_name}...")
     
     try:
-        # Campiona i dati se troppo grandi
-        if len(X_train) > sample_size:
-            train_sample = X_train.sample(n=sample_size, random_state=42)
+        # Campiona i dati aggressivamente per velocizzare
+        # Per ensemble models, usa campioni molto più piccoli
+        if 'Ensemble' in model_name or 'Stacking' in model_name:
+            effective_sample_size = min(sample_size // 2, 50)  # Max 50 campioni per ensemble
+            test_sample_size = min(20, len(X_test))  # Max 20 predizioni per ensemble
+        else:
+            effective_sample_size = sample_size
+            test_sample_size = min(sample_size, len(X_test))
+        
+        logger.info(f"Usando {effective_sample_size} campioni di background e {test_sample_size} campioni di test per {model_name}")
+        
+        # Campiona i dati
+        if len(X_train) > effective_sample_size:
+            train_sample = X_train.sample(n=effective_sample_size, random_state=42)
         else:
             train_sample = X_train
             
-        if len(X_test) > sample_size:
-            test_sample = X_test.sample(n=sample_size, random_state=42)
+        if len(X_test) > test_sample_size:
+            test_sample = X_test.sample(n=test_sample_size, random_state=42)
         else:
             test_sample = X_test
         
@@ -118,20 +159,29 @@ def calculate_shap_importance(
         if model_type == 'auto':
             model_type = _detect_model_type(model)
         
-        # Crea explainer
-        if model_type == 'tree':
-            explainer = shap.TreeExplainer(model)
-            shap_values = explainer.shap_values(test_sample)
-        elif model_type == 'linear':
-            explainer = shap.LinearExplainer(model, train_sample)
-            shap_values = explainer.shap_values(test_sample)
-        elif model_type == 'kernel':
-            explainer = shap.KernelExplainer(model.predict, train_sample)
-            shap_values = explainer.shap_values(test_sample)
-        else:
-            # Fallback a Permutation explainer
-            explainer = shap.Explainer(model.predict, train_sample)
-            shap_values = explainer(test_sample).values
+        # Crea wrapper per gestire feature names e sopprimere warning
+        feature_names = list(X_test.columns)
+        predict_wrapper = _create_feature_aware_predictor(model, feature_names)
+        
+        # Crea explainer con gestione ottimizzata
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message=".*valid feature names.*")
+            warnings.filterwarnings("ignore", message=".*background data samples.*")
+            
+            if model_type == 'tree':
+                explainer = shap.TreeExplainer(model)
+                shap_values = explainer.shap_values(test_sample)
+            elif model_type == 'linear':
+                explainer = shap.LinearExplainer(model, train_sample)
+                shap_values = explainer.shap_values(test_sample)
+            elif model_type == 'kernel':
+                # Usa il wrapper per evitare warning sui feature names
+                explainer = shap.KernelExplainer(predict_wrapper, train_sample.values)
+                shap_values = explainer.shap_values(test_sample.values)
+            else:
+                # Fallback a Permutation explainer
+                explainer = shap.Explainer(predict_wrapper, train_sample.values)
+                shap_values = explainer(test_sample.values).values
         
         # Se shap_values è 3D (classificazione), prendi la prima classe
         if len(shap_values.shape) == 3:
@@ -480,8 +530,13 @@ def run_comprehensive_feature_analysis(
             model, X_train, X_test, y_test, model_name, feature_cols, scoring=scoring
         )
         
-        # SHAP analysis
-        shap_result = calculate_shap_importance(model, X_train, X_test, model_name)
+        # SHAP analysis - skip per ensemble models molto lenti
+        if 'Ensemble_StackingRegressor' in model_name:
+            logger.warning(f"⚠️  Skipping SHAP analysis per {model_name} - troppo computazionalmente costoso")
+            logger.info(f"💡 Per calcolare SHAP per {model_name}, usa un campione più piccolo o esegui separatamente")
+            shap_result = None
+        else:
+            shap_result = calculate_shap_importance(model, X_train, X_test, model_name)
         
         # Salva risultati
         detailed_results[model_name] = {
@@ -514,3 +569,56 @@ def run_comprehensive_feature_analysis(
         logger.info(f"  {i:2d}. {feature}: {imp:.4f}")
     
     return global_summary, detailed_results
+
+def get_ensemble_feature_importance_fast(
+    model, 
+    feature_names: List[str], 
+    model_name: str
+) -> Optional[np.ndarray]:
+    """
+    Calcola feature importance veloce per ensemble models senza SHAP.
+    
+    Args:
+        model: Modello ensemble
+        feature_names: Lista nomi delle feature
+        model_name: Nome del modello
+        
+    Returns:
+        Array con feature importance o None se non disponibile
+    """
+    try:
+        # Per StackingRegressor, prova a ottenere importance dai base estimators
+        if hasattr(model, 'estimators_') and model.estimators_:
+            logger.info(f"Calcolo feature importance media dai base estimators per {model_name}...")
+            
+            all_importances = []
+            for i, (name, estimator) in enumerate(model.estimators_):
+                if hasattr(estimator, 'feature_importances_'):
+                    importance = estimator.feature_importances_
+                    all_importances.append(importance)
+                    logger.info(f"  ✓ {name}: importance estratta")
+                elif hasattr(estimator, 'coef_'):
+                    importance = np.abs(estimator.coef_)
+                    all_importances.append(importance)
+                    logger.info(f"  ✓ {name}: coefficienti estratti")
+                else:
+                    logger.info(f"  ⚠️ {name}: no feature importance disponibile")
+            
+            if all_importances:
+                # Media delle importanze dai base estimators
+                mean_importance = np.mean(all_importances, axis=0)
+                logger.info(f"✓ Feature importance media calcolata da {len(all_importances)} base estimators")
+                return mean_importance
+            
+        # Fallback: prova metodi standard
+        if hasattr(model, 'feature_importances_'):
+            return model.feature_importances_
+        elif hasattr(model, 'coef_'):
+            return np.abs(model.coef_)
+            
+        logger.warning(f"⚠️ Nessun metodo disponibile per feature importance in {model_name}")
+        return None
+        
+    except Exception as e:
+        logger.error(f"✗ Errore calcolo feature importance veloce per {model_name}: {str(e)}")
+        return None
