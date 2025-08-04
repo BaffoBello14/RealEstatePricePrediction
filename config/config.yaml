@@ -27,7 +27,7 @@ preprocessing:
     enable_correlation_removal: true
     enable_advanced_encoding: true
     enable_feature_scaling: true
-    enable_log_transformation: true
+    enable_log_transformation: false
     enable_outlier_detection: true
     enable_pca: false
   
@@ -130,7 +130,7 @@ training:
   # ranking_metric: 'Val_RMSE'
   
   # Optuna optimization
-  n_trials: 100
+  n_trials: 10
   optuna_timeout: 7200  # 2 ore in secondi
   optuna_pruning_percentile: 25
   
