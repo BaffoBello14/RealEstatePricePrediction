@@ -1,280 +1,185 @@
 """
 Entry point principale per la pipeline di Machine Learning.
+
+Questo modulo fornisce l'interfaccia principale per l'esecuzione della pipeline
+di Machine Learning ristrutturata, utilizzando il PipelineOrchestrator per
+gestire l'orchestrazione degli step.
 """
 
 import sys
-from pathlib import Path
 import argparse
-from typing import Dict, Any
+from pathlib import Path
+from typing import List, Optional
 
-# Aggiungi src al path
+# Aggiungi src al path per import locali
 sys.path.append(str(Path(__file__).parent / "src"))
 
-from src.utils.logger import setup_logger, get_logger
-from src.utils.io import load_config, check_file_exists, ensure_dir
-from src.db.retrieve import retrieve_data
-from src.dataset.build_dataset import build_dataset
-from src.preprocessing.pipeline import run_preprocessing_pipeline
-from src.training.train import run_training_pipeline
-from src.training.evaluation import run_evaluation_pipeline
+# Import consolidati e ottimizzati
+from src import setup_logger, get_logger, load_config, PipelineOrchestrator
 
-def setup_directories(config: Dict[str, Any]) -> None:
-    """
-    Crea le directory necessarie per il progetto.
-    
-    Args:
-        config: Configurazione del progetto
-    """
-    logger = get_logger(__name__)
-    
-    paths = config.get('paths', {})
-    for path_name, path_value in paths.items():
-        ensure_dir(path_value)
-        logger.info(f"Directory {path_name} verificata: {path_value}")
 
-def run_retrieve_data(config: Dict[str, Any]) -> str:
+def parse_arguments() -> argparse.Namespace:
     """
-    Esegue il recupero dati dal database.
+    Parse degli argomenti da linea di comando.
     
-    Args:
-        config: Configurazione del progetto
-        
     Returns:
-        Path del file dati grezzi
+        Argomenti parsati
     """
-    logger = get_logger(__name__)
-    logger.info("=== FASE 1: RECUPERO DATI ===")
-    
-    db_config = config.get('database', {})
-    paths = config.get('paths', {})
-    
-    schema_path = db_config.get('schema_path', 'db_schema.json')
-    selected_aliases = db_config.get('selected_aliases', [])
-    output_path = f"{paths.get('data_raw', 'data/raw/')}raw_data.parquet"
-    
-    # Verifica se i dati esistono già
-    if check_file_exists(output_path) and not config.get('execution', {}).get('force_reload', False):
-        logger.info(f"Dati grezzi già esistenti: {output_path}")
-        return output_path
-    
-    # Recupera dati
-    retrieve_data(schema_path, selected_aliases, output_path)
-    return output_path
-
-def run_build_dataset(config: Dict[str, Any], raw_data_path: str) -> str:
-    """
-    Esegue la costruzione del dataset.
-    
-    Args:
-        config: Configurazione del progetto
-        raw_data_path: Path ai dati grezzi
-        
-    Returns:
-        Path del dataset processato
-    """
-    logger = get_logger(__name__)
-    logger.info("=== FASE 2: COSTRUZIONE DATASET ===")
-    
-    paths = config.get('paths', {})
-    output_path = f"{paths.get('data_processed', 'data/processed/')}dataset.parquet"
-    
-    # Verifica se il dataset esiste già
-    if check_file_exists(output_path) and not config.get('execution', {}).get('force_reload', False):
-        logger.info(f"Dataset già esistente: {output_path}")
-        return output_path
-    
-    # Costruisce dataset
-    build_dataset(raw_data_path, output_path)
-    return output_path
-
-def run_preprocessing(config: Dict[str, Any], dataset_path: str) -> Dict[str, str]:
-    """
-    Esegue il preprocessing completo.
-    
-    Args:
-        config: Configurazione del progetto
-        dataset_path: Path al dataset
-        
-    Returns:
-        Dizionario con i path dei file processati
-    """
-    logger = get_logger(__name__)
-    logger.info("=== FASE 3: PREPROCESSING ===")
-    
-    paths = config.get('paths', {})
-    target_config = config.get('target', {})
-    preprocessing_config = config.get('preprocessing', {})
-    
-    target_column = target_config.get('column', 'AI_Prezzo_Ridistribuito')
-    
-    # Path di output
-    output_paths = {
-        'train_features': f"{paths.get('data_processed', 'data/processed/')}X_train.parquet",
-        'val_features': f"{paths.get('data_processed', 'data/processed/')}X_val.parquet",
-        'test_features': f"{paths.get('data_processed', 'data/processed/')}X_test.parquet", 
-        'train_target': f"{paths.get('data_processed', 'data/processed/')}y_train.parquet",
-        'val_target': f"{paths.get('data_processed', 'data/processed/')}y_val.parquet",
-        'test_target': f"{paths.get('data_processed', 'data/processed/')}y_test.parquet",
-        'val_target_orig': f"{paths.get('data_processed', 'data/processed/')}y_val_orig.parquet",
-        'test_target_orig': f"{paths.get('data_processed', 'data/processed/')}y_test_orig.parquet",
-        'preprocessing_info': f"{paths.get('data_processed', 'data/processed/')}preprocessing_info.json"
-    }
-    
-    # Verifica se i file esistono già
-    all_exist = all(check_file_exists(path) for path in output_paths.values())
-    if all_exist and not config.get('execution', {}).get('force_reload', False):
-        logger.info("File preprocessing già esistenti")
-        return output_paths
-    
-    # Esegue preprocessing
-    run_preprocessing_pipeline(
-        dataset_path=dataset_path,
-        target_column=target_column,
-        config=preprocessing_config,
-        output_paths=output_paths
+    parser = argparse.ArgumentParser(
+        description='Pipeline ML ristrutturata per analisi immobiliare',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Esempi di utilizzo:
+  python main.py                                    # Esegue pipeline completa
+  python main.py --steps retrieve_data build_dataset # Esegue solo alcuni step
+  python main.py --force-reload                     # Forza ricaricamento dati
+  python main.py --config config/custom.yaml       # Usa configurazione custom
+        """
     )
     
-    return output_paths
-
-def run_training(config: Dict[str, Any], preprocessing_paths: Dict[str, str]) -> Dict[str, Any]:
-    """
-    Esegue il training dei modelli.
-    
-    Args:
-        config: Configurazione del progetto
-        preprocessing_paths: Path dei file preprocessati
-        
-    Returns:
-        Dictionary con risultati del training
-    """
-    logger = get_logger(__name__)
-    logger.info("=== FASE 4: TRAINING ===")
-    
-    training_config = config.get('training', {})
-    
-    # Esegue training pipeline
-    training_results = run_training_pipeline(preprocessing_paths, training_config)
-    
-    logger.info("Training completato con successo")
-    return training_results
-
-def run_evaluation(config: Dict[str, Any], training_results: Dict[str, Any], preprocessing_paths: Dict[str, str]) -> Dict[str, Any]:
-    """
-    Esegue la valutazione dei modelli.
-    
-    Args:
-        config: Configurazione del progetto
-        training_results: Risultati del training
-        preprocessing_paths: Path ai file preprocessati
-        
-    Returns:
-        Dictionary con risultati dell'evaluation
-    """
-    logger = get_logger(__name__)
-    logger.info("=== FASE 5: EVALUATION ===")
-    
-    paths = config.get('paths', {})
-    
-    # Path di output per evaluation
-    output_paths = {
-        'results_dir': paths.get('logs', 'logs/'),
-        'feature_importance_path': f"{paths.get('data_processed', 'data/processed/')}feature_importance.csv",
-        'evaluation_summary_path': f"{paths.get('data_processed', 'data/processed/')}evaluation_summary.json"
-    }
-    
-    # Esegue evaluation pipeline
-    evaluation_results = run_evaluation_pipeline(
-        training_results, preprocessing_paths, config, output_paths
+    parser.add_argument(
+        '--config', 
+        default='config/config.yaml',
+        help='Path al file di configurazione (default: config/config.yaml)'
     )
     
-    logger.info("Evaluation completata con successo")
-    return evaluation_results
+    parser.add_argument(
+        '--steps', 
+        nargs='+',
+        choices=['retrieve_data', 'build_dataset', 'preprocessing', 'training', 'evaluation'],
+        help='Step specifici da eseguire (default: tutti dalla configurazione)'
+    )
+    
+    parser.add_argument(
+        '--force-reload', 
+        action='store_true',
+        help='Forza il ricaricamento di tutti i dati esistenti'
+    )
+    
+    parser.add_argument(
+        '--dry-run',
+        action='store_true', 
+        help='Mostra gli step che verrebbero eseguiti senza eseguirli'
+    )
+    
+    parser.add_argument(
+        '--verbose',
+        action='store_true',
+        help='Abilita logging più dettagliato'
+    )
+    
+    return parser.parse_args()
 
-def main():
-    """Funzione principale della pipeline."""
+
+def setup_configuration(args: argparse.Namespace) -> dict:
+    """
+    Configura e carica la configurazione del progetto.
     
-    # Parse argomenti
-    parser = argparse.ArgumentParser(description='Pipeline ML per analisi immobiliare')
-    parser.add_argument('--config', default='config/config.yaml', 
-                       help='Path al file di configurazione')
-    parser.add_argument('--steps', nargs='+', 
-                       choices=['retrieve_data', 'build_dataset', 'preprocessing', 'training', 'evaluation'],
-                       help='Step specifici da eseguire')
-    parser.add_argument('--force-reload', action='store_true',
-                       help='Forza il ricaricamento di tutti i dati')
+    Args:
+        args: Argomenti da linea di comando
+        
+    Returns:
+        Configurazione caricata e aggiornata
+    """
+    # Carica configurazione base
+    config = load_config(args.config)
     
-    args = parser.parse_args()
+    # Applica override da argomenti
+    execution_config = config.setdefault('execution', {})
+    
+    if args.force_reload:
+        execution_config['force_reload'] = True
+    
+    if args.verbose:
+        config.setdefault('logging', {})['level'] = 'DEBUG'
+    
+    return config
+
+
+def run_dry_run(orchestrator: PipelineOrchestrator, steps: Optional[List[str]] = None) -> None:
+    """
+    Esegue una simulazione della pipeline senza effettivo processing.
+    
+    Args:
+        orchestrator: Istanza dell'orchestratore
+        steps: Step da simulare
+    """
+    logger = get_logger(__name__)
+    logger.info("=== MODALITÀ DRY-RUN ATTIVATA ===")
+    
+    steps_to_run = orchestrator.get_steps_to_run(steps)
+    
+    logger.info("📋 Step che verrebbero eseguiti:")
+    for i, step in enumerate(steps_to_run, 1):
+        logger.info(f"  {i}. {step}")
+    
+    state = orchestrator.get_pipeline_state()
+    logger.info(f"🔧 PathManager: {state['path_manager_info']}")
+    logger.info("=== FINE DRY-RUN ===")
+
+
+def main() -> None:
+    """
+    Funzione principale della pipeline ML ristrutturata.
+    
+    Gestisce l'orchestrazione completa utilizzando PipelineOrchestrator
+    per garantire modularità, robustezza e manutenibilità.
+    """
+    # Parse argomenti e configurazione
+    args = parse_arguments()
+    config = setup_configuration(args)
+    
+    # Setup del sistema di logging
+    logger = setup_logger(args.config)
+    logger.info("🚀 === AVVIO PIPELINE ML RISTRUTTURATA ===")
+    logger.info(f"📄 Configurazione caricata da: {args.config}")
+    
+    if args.verbose:
+        logger.info(f"🎛️  Argomenti: {vars(args)}")
     
     try:
-        # Carica configurazione
-        config = load_config(args.config)
+        # Inizializza orchestratore pipeline
+        orchestrator = PipelineOrchestrator(config)
         
-        # Override force_reload se specificato
-        if args.force_reload:
-            config.setdefault('execution', {})['force_reload'] = True
+        # Setup ambiente (directory, validazioni, etc.)
+        orchestrator.setup_environment()
         
-        # Setup logger
-        logger = setup_logger(args.config)
-        logger.info("=== AVVIO PIPELINE ML ===")
-        logger.info(f"Configurazione caricata da: {args.config}")
+        # Modalità dry-run
+        if args.dry_run:
+            run_dry_run(orchestrator, args.steps)
+            return
         
-        # Setup directory
-        setup_directories(config)
+        # Esecuzione pipeline vera e propria
+        logger.info("▶️  Avvio esecuzione pipeline...")
+        results = orchestrator.run_pipeline(args.steps)
         
-        # Determina step da eseguire
-        steps_to_run = args.steps if args.steps else config.get('execution', {}).get('steps', [])
-        logger.info(f"Step da eseguire: {steps_to_run}")
+        # Reporting finale
+        logger.info("🎉 === PIPELINE COMPLETATA CON SUCCESSO ===")
+        logger.info(f"📊 Step eseguiti: {len(results)}")
         
-        # Variabili per passaggio dati tra step
-        raw_data_path = None
-        dataset_path = None
-        preprocessing_paths = None
-        training_results = None
+        if args.verbose:
+            for step, result in results.items():
+                if isinstance(result, dict) and 'total_rows' in result:
+                    logger.info(f"  • {step}: {result.get('total_rows', 'N/A')} righe processate")
+                elif isinstance(result, str):
+                    logger.info(f"  • {step}: {result}")
+                else:
+                    logger.info(f"  • {step}: completato")
         
-        # Esecuzione step
-        if 'retrieve_data' in steps_to_run:
-            raw_data_path = run_retrieve_data(config)
+        # Stato finale della pipeline
+        final_state = orchestrator.get_pipeline_state()
+        logger.info(f"📁 File generati consultabili tramite PathManager")
         
-        if 'build_dataset' in steps_to_run:
-            if raw_data_path is None:
-                paths = config.get('paths', {})
-                raw_data_path = f"{paths.get('data_raw', 'data/raw/')}raw_data.parquet"
-            dataset_path = run_build_dataset(config, raw_data_path)
-        
-        if 'preprocessing' in steps_to_run:
-            if dataset_path is None:
-                paths = config.get('paths', {})
-                dataset_path = f"{paths.get('data_processed', 'data/processed/')}dataset.parquet"
-            preprocessing_paths = run_preprocessing(config, dataset_path)
-        
-        if 'training' in steps_to_run:
-            if preprocessing_paths is None:
-                paths = config.get('paths', {})
-                preprocessing_paths = {
-                    'train_features': f"{paths.get('data_processed', 'data/processed/')}X_train.parquet",
-                    'val_features': f"{paths.get('data_processed', 'data/processed/')}X_val.parquet",
-                    'test_features': f"{paths.get('data_processed', 'data/processed/')}X_test.parquet",
-                    'train_target': f"{paths.get('data_processed', 'data/processed/')}y_train.parquet",
-                    'val_target': f"{paths.get('data_processed', 'data/processed/')}y_val.parquet",
-                    'test_target': f"{paths.get('data_processed', 'data/processed/')}y_test.parquet",
-                    'val_target_orig': f"{paths.get('data_processed', 'data/processed/')}y_val_orig.parquet",
-                    'test_target_orig': f"{paths.get('data_processed', 'data/processed/')}y_test_orig.parquet",
-                    'preprocessing_info': f"{paths.get('data_processed', 'data/processed/')}preprocessing_info.json"
-                }
-            training_results = run_training(config, preprocessing_paths)
-        
-        if 'evaluation' in steps_to_run:
-            if training_results is None:
-                logger.error("Training results non disponibili per evaluation. Eseguire prima il training.")
-            else:
-                run_evaluation(config, training_results, preprocessing_paths)
-        
-        logger.info("=== PIPELINE COMPLETATA CON SUCCESSO ===")
+    except KeyboardInterrupt:
+        logger.warning("⚠️  Pipeline interrotta dall'utente")
+        sys.exit(130)  # Standard exit code per SIGINT
         
     except Exception as e:
-        logger = get_logger(__name__)
-        logger.error(f"Errore nella pipeline: {e}")
+        logger.error(f"❌ Errore critico nella pipeline: {e}")
+        if args.verbose:
+            logger.exception("📋 Traceback completo:")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

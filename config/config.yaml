@@ -17,9 +17,10 @@ target:
 # Preprocessing parametri
 preprocessing:
   # ==========================================
-  # CONTROLLO STEP ABILITAZIONE/DISABILITAZIONE
+  # CONTROLLO STEP ABILITAZIONE/DISABILITAZIONE - PIPELINE MODULARIZZATA
   # ==========================================
   steps:
+    # Step legacy (mantenuti per compatibilità)
     enable_specific_columns_removal: true
     enable_constant_columns_removal: true
     enable_cramers_analysis: true  
@@ -30,6 +31,13 @@ preprocessing:
     enable_log_transformation: false
     enable_outlier_detection: true
     enable_pca: false
+    
+    # Nuovi step pipeline modularizzata
+    enable_data_cleaning: true           # Step 2: Pulizia dati unificata
+    enable_feature_analysis: true       # Step 3: Analisi feature e correlazioni  
+    enable_imputation: true             # Step 5: Imputazione valori mancanti
+    enable_target_processing: true      # Step 8: Target processing e outlier detection
+    enable_basic_cleaning: true         # Substep 2.1: Pulizia base (stringhe vuote, duplicati, etc.)
   
   # ==========================================
   # CONFIGURAZIONI PULIZIA DATI
