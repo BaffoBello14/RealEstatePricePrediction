@@ -4,6 +4,16 @@ from scipy import stats
 from sklearn.ensemble import IsolationForest
 from typing import Tuple, Dict, Any, List
 from ..utils.logger import get_logger
+from .data_cleaning_core import (
+    convert_to_numeric_unified,
+    clean_dataframe_unified,
+    remove_constant_columns_unified
+)
+from .target_processing_core import (
+    transform_target_log,
+    detect_outliers_univariate,
+    detect_outliers_multivariate
+)
 
 logger = get_logger(__name__)
 
@@ -100,7 +110,8 @@ def remove_constant_columns(df: pd.DataFrame, target_column: str, threshold: flo
 
 def convert_to_numeric(df: pd.DataFrame, target_column: str, threshold: float = 0.8) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """
-    Converte automaticamente colonne a tipo numerico quando possibile.
+    DEPRECATA: Usa convert_to_numeric_unified dal modulo data_cleaning_core.
+    Mantenuta per compatibilità con codice esistente.
     
     Args:
         df: DataFrame da processare
@@ -110,68 +121,12 @@ def convert_to_numeric(df: pd.DataFrame, target_column: str, threshold: float = 
     Returns:
         Tuple con DataFrame convertito e informazioni sulle conversioni
     """
-    logger.info(f"Conversione automatica a numerico (soglia: {threshold})...")
-    
-    conversion_info = {
-        'threshold_used': threshold,
-        'converted_columns': [],
-        'failed_conversions': [],
-        'conversion_stats': {}
-    }
-    
-    numeric_conversions = 0
-    
-    for col in df.columns:
-        if col == target_column or df[col].dtype != 'object':
-            continue
-            
-        try:
-            # Prova conversione a numerico
-            original_count = len(df[col])
-            non_null_count = df[col].notna().sum()
-            
-            if non_null_count == 0:
-                continue
-                
-            df_numeric = pd.to_numeric(df[col], errors='coerce')
-            valid_conversions = df_numeric.notna().sum()
-            conversion_rate = valid_conversions / non_null_count
-            
-            conversion_stats = {
-                'original_non_null': non_null_count,
-                'valid_conversions': valid_conversions,
-                'conversion_rate': conversion_rate,
-                'original_dtype': str(df[col].dtype)
-            }
-            
-            conversion_info['conversion_stats'][col] = conversion_stats
-            
-            # Se tasso di conversione sopra soglia, applica conversione
-            if conversion_rate >= threshold:
-                df[col] = df_numeric
-                conversion_info['converted_columns'].append(col)
-                numeric_conversions += 1
-                logger.info(f"  {col}: convertita a numerico ({conversion_rate:.3f} tasso successo)")
-            else:
-                conversion_info['failed_conversions'].append(col)
-                logger.info(f"  {col}: conversione skippata ({conversion_rate:.3f} tasso successo < {threshold})")
-                
-        except Exception as e:
-            conversion_info['failed_conversions'].append(col)
-            logger.warning(f"  {col}: errore nella conversione - {str(e)}")
-    
-    conversion_info['total_converted'] = numeric_conversions
-    
-    if numeric_conversions > 0:
-        logger.info(f"Convertite {numeric_conversions} colonne a tipo numerico")
-    else:
-        logger.info("Nessuna colonna convertita a numerico")
-    
-    return df, conversion_info
+    logger.warning("⚠️  convert_to_numeric è DEPRECATA, usa convert_to_numeric_unified")
+    return convert_to_numeric_unified(df, target_column, threshold)
 
 def clean_data(df: pd.DataFrame, target_column: str, config: Dict[str, Any]) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """
-    Pulisce i dati del dataset applicando varie operazioni di cleaning.
+    RISTRUTTURATA: Pulisce i dati del dataset utilizzando funzioni unificate modulari.
     
     Args:
         df: DataFrame da pulire
@@ -179,63 +134,73 @@ def clean_data(df: pd.DataFrame, target_column: str, config: Dict[str, Any]) -> 
         config: Configurazione del preprocessing
         
     Returns:
-        Tuple con DataFrame pulito e informazioni sul cleaning
+        Tuple con DataFrame pulito e informazioni dettagliate sul cleaning
+        
+    Note:
+        Ora utilizza il sistema modulare unificato per eliminare duplicazioni.
+        Mantiene compatibilità con l'interfaccia esistente.
     """
-    logger.info("Inizio pulizia dati...")
+    logger.info("🧹 Avvio pulizia dati ristrutturata...")
     
-    original_shape = df.shape
-    cleaning_info = {'original_shape': original_shape}
-    
-    # 1. Sostituisce stringhe vuote con NaN
-    logger.info("Sostituzione stringhe vuote con NaN...")
-    df = df.replace('', np.nan)
-    
-    # 2. Rimuove colonne specifiche (se abilitato)
     steps_config = config.get('steps', {})
+    cleaning_info = {'config_used': config, 'steps_performed': []}
+    
+    # STEP 1: Pulizia base unificata
+    logger.info("🔧 Step 1: Pulizia base unificata...")
+    df_clean, base_cleaning_info = clean_dataframe_unified(
+        df=df,
+        target_column=target_column,
+        remove_empty_strings=True,
+        remove_duplicates=True,
+        remove_empty_columns=True,
+        remove_target_nulls=True
+    )
+    cleaning_info['base_cleaning'] = base_cleaning_info
+    cleaning_info['steps_performed'].append('base_cleaning_unified')
+    
+    # STEP 2: Rimozione colonne specifiche (se abilitato)
     if steps_config.get('enable_specific_columns_removal', True):
         columns_to_remove = config.get('columns_to_remove', [])
         if columns_to_remove:
-            df, specific_removal_info = remove_specific_columns(df, columns_to_remove)
+            logger.info(f"🗑️  Step 2: Rimozione colonne specifiche: {columns_to_remove}")
+            df_clean, specific_removal_info = remove_specific_columns(df_clean, columns_to_remove)
             cleaning_info['specific_columns_removal'] = specific_removal_info
+            cleaning_info['steps_performed'].append('specific_columns_removal')
+        else:
+            logger.info("📋 Step 2: Nessuna colonna specifica da rimuovere")
+    else:
+        logger.info("⏭️  Step 2: Rimozione colonne specifiche DISABILITATA")
     
-    # 3. Rimuove colonne costanti (se abilitato)
+    # STEP 3: Rimozione colonne costanti (se abilitato)
     if steps_config.get('enable_constant_columns_removal', True):
         constant_threshold = config.get('constant_column_threshold', 0.95)
-        df, constant_removal_info = remove_constant_columns(df, target_column, constant_threshold)
+        logger.info(f"📊 Step 3: Rimozione colonne quasi-costanti (soglia: {constant_threshold:.1%})")
+        df_clean, constant_removal_info = remove_constant_columns_unified(
+            df=df_clean,
+            target_column=target_column,
+            threshold=constant_threshold
+        )
         cleaning_info['constant_columns_removal'] = constant_removal_info
+        cleaning_info['steps_performed'].append('constant_columns_removal')
+    else:
+        logger.info("⏭️  Step 3: Rimozione colonne costanti DISABILITATA")
     
-    # 4. Rimuove righe dove il target è mancante
-    if target_column in df.columns:
-        target_null_count = df[target_column].isnull().sum()
-        if target_null_count > 0:
-            logger.info(f"Rimozione {target_null_count} righe con target mancante...")
-            df = df.dropna(subset=[target_column])
-            cleaning_info['target_null_removed'] = target_null_count
+    # Statistiche finali per compatibilità con codice esistente
+    original_shape = cleaning_info['base_cleaning']['original_shape']
+    final_shape = list(df_clean.shape)
     
-    # 5. Rimuove colonne completamente vuote
-    empty_cols = df.columns[df.isnull().all()].tolist()
-    if empty_cols:
-        logger.info(f"Rimozione {len(empty_cols)} colonne completamente vuote...")
-        df = df.drop(columns=empty_cols)
-        cleaning_info['empty_columns_removed'] = empty_cols
+    cleaning_info.update({
+        'original_shape': original_shape,
+        'final_shape': final_shape,
+        'rows_removed': original_shape[0] - final_shape[0],
+        'columns_removed': original_shape[1] - final_shape[1]
+    })
     
-    # 6. Rimuove duplicati completi
-    duplicates = df.duplicated().sum()
-    if duplicates > 0:
-        logger.info(f"Rimozione {duplicates} righe duplicate...")
-        df = df.drop_duplicates()
-        cleaning_info['duplicates_removed'] = duplicates
+    logger.info(f"🏁 Pulizia completata: {original_shape} → {final_shape}")
+    logger.info(f"📊 Totale riduzione: {cleaning_info['rows_removed']} righe, {cleaning_info['columns_removed']} colonne")
+    logger.info(f"✨ Step eseguiti: {cleaning_info['steps_performed']}")
     
-    final_shape = df.shape
-    cleaning_info['final_shape'] = final_shape
-    cleaning_info['rows_removed'] = original_shape[0] - final_shape[0]
-    cleaning_info['columns_removed'] = original_shape[1] - final_shape[1]
-    
-    logger.info(f"Pulizia completata: {original_shape} -> {final_shape}")
-    logger.info(f"Righe rimosse: {cleaning_info['rows_removed']}")
-    logger.info(f"Colonne rimosse: {cleaning_info['columns_removed']}")
-    
-    return df, cleaning_info
+    return df_clean, cleaning_info
 
 def transform_target_and_detect_outliers(
     y_train: pd.Series,
@@ -246,8 +211,13 @@ def transform_target_and_detect_outliers(
     min_methods: int = 2
 ) -> Tuple[pd.Series, np.ndarray, Dict[str, Any]]:
     """
-    Trasforma il target e rileva outliers usando multiple metodologie.
-    DEPRECATED: Usa transform_target_log e detect_outliers_multimethod separatamente.
+    DEPRECATA: Trasforma il target e rileva outliers usando multiple metodologie.
+    
+    ⚠️  PROBLEMA ARCHITETTURALE: Questa funzione fa due cose diverse insieme (trasformazione + outlier detection).
+    
+    ALTERNATIVA RACCOMANDATA:
+    - Usa transform_target_log() dal modulo target_processing_core per trasformazione
+    - Usa detect_outliers_univariate() o detect_outliers_multivariate() per outlier detection
     
     Args:
         y_train: Serie target di training
@@ -259,33 +229,38 @@ def transform_target_and_detect_outliers(
         
     Returns:
         Tuple con target trasformato, mask outliers, info detector
+        
+    Note:
+        Mantenuta per compatibilità con codice esistente, ma ora usa internamente
+        le funzioni separate e più chiare del modulo target_processing_core.
     """
-    from .transformation import transform_target_log
+    logger.warning("⚠️  transform_target_and_detect_outliers è DEPRECATA, usa funzioni separate dal modulo target_processing_core")
     
-    logger.info("Trasformazione target e outlier detection (usando funzioni separate)...")
-    
+    # RISTRUTTURAZIONE: Usa le nuove funzioni separate per chiarezza
     # Step 1: Trasformazione logaritmica del target
-    y_train_log, transform_info = transform_target_log(y_train)
+    y_train_log, transform_info = transform_target_log(y_train, method='log1p')
     
-    # Step 2: Outlier detection
-    outliers_mask, outlier_info = detect_outliers_multimethod(
-        y_train_log, X_train, z_threshold, iqr_multiplier, contamination, min_methods
+    # Step 2: Outlier detection usando le nuove funzioni modulari
+    outliers_mask, outlier_info = detect_outliers_univariate(
+        y_train_log,
+        methods=['zscore', 'iqr'],
+        z_threshold=z_threshold,
+        iqr_multiplier=iqr_multiplier,
+        min_methods_agreement=min_methods
     )
     
     # Combina le informazioni per compatibilità con l'API esistente
+    # (adatta ai nuovi formati delle funzioni separate)
     detector_info = {
-        'original_skew': transform_info['original_skew'],
-        'log_skew': transform_info['log_skew'],
-        'total_outliers': outlier_info['total_outliers'],
-        'outlier_percentage': outlier_info['outlier_percentage'],
-        'methods_used': outlier_info['methods_used'],
-        'parameters': outlier_info['parameters'],
-        'target_bounds': {
-            'log_min': transform_info['target_bounds']['log_min'],
-            'log_max': transform_info['target_bounds']['log_max'],
-            'log_mean': transform_info['target_bounds']['log_mean'],
-            'log_std': transform_info['target_bounds']['log_std']
-        }
+        'transform_info': transform_info,
+        'outlier_info': outlier_info,
+        # Compatibilità legacy (potrebbe essere rimossa in futuro)
+        'original_skew': transform_info['original_stats']['skewness'],
+        'log_skew': transform_info['transformed_stats']['skewness'] if transform_info['applied'] else transform_info['original_stats']['skewness'],
+        'total_outliers': outlier_info['final_outliers']['count'],
+        'outlier_percentage': outlier_info['final_outliers']['percentage'],
+        'methods_used': [(method, result['outliers_count']) for method, result in outlier_info['method_results'].items()],
+        'parameters': outlier_info['parameters']
     }
     
     return y_train_log, outliers_mask, detector_info

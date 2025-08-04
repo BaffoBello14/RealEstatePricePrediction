@@ -11,7 +11,8 @@ from typing import Dict, Any
 sys.path.append(str(Path(__file__).parent / "src"))
 
 from src.utils.logger import setup_logger, get_logger
-from src.utils.io import load_config, check_file_exists, ensure_dir
+from src.utils.io import load_config, check_file_exists
+from src.utils.path_manager import create_path_manager
 from src.db.retrieve import retrieve_data
 from src.dataset.build_dataset import build_dataset
 from src.preprocessing.pipeline import run_preprocessing_pipeline
@@ -20,21 +21,21 @@ from src.training.evaluation import run_evaluation_pipeline
 
 def setup_directories(config: Dict[str, Any]) -> None:
     """
+    DEPRECATA: Usa PathManager.ensure_all_directories().
     Crea le directory necessarie per il progetto.
     
     Args:
         config: Configurazione del progetto
     """
     logger = get_logger(__name__)
+    logger.warning("⚠️  setup_directories è DEPRECATA, usa PathManager.ensure_all_directories()")
     
-    paths = config.get('paths', {})
-    for path_name, path_value in paths.items():
-        ensure_dir(path_value)
-        logger.info(f"Directory {path_name} verificata: {path_value}")
+    path_manager = create_path_manager(config)
+    path_manager.ensure_all_directories()
 
 def run_retrieve_data(config: Dict[str, Any]) -> str:
     """
-    Esegue il recupero dati dal database.
+    RISTRUTTURATA: Esegue il recupero dati dal database usando PathManager.
     
     Args:
         config: Configurazione del progetto
@@ -45,25 +46,28 @@ def run_retrieve_data(config: Dict[str, Any]) -> str:
     logger = get_logger(__name__)
     logger.info("=== FASE 1: RECUPERO DATI ===")
     
+    # Usa PathManager per gestire i path
+    path_manager = create_path_manager(config)
     db_config = config.get('database', {})
-    paths = config.get('paths', {})
     
-    schema_path = db_config.get('schema_path', 'db_schema.json')
+    schema_path = path_manager.get_database_schema_path()
     selected_aliases = db_config.get('selected_aliases', [])
-    output_path = f"{paths.get('data_raw', 'data/raw/')}raw_data.parquet"
+    output_path = path_manager.get_raw_data_path()
     
     # Verifica se i dati esistono già
     if check_file_exists(output_path) and not config.get('execution', {}).get('force_reload', False):
-        logger.info(f"Dati grezzi già esistenti: {output_path}")
+        logger.info(f"📁 Dati grezzi già esistenti: {output_path}")
         return output_path
     
     # Recupera dati
+    logger.info(f"🔄 Recupero dati da schema: {schema_path}")
     retrieve_data(schema_path, selected_aliases, output_path)
+    logger.info(f"✅ Dati grezzi salvati: {output_path}")
     return output_path
 
 def run_build_dataset(config: Dict[str, Any], raw_data_path: str) -> str:
     """
-    Esegue la costruzione del dataset.
+    RISTRUTTURATA: Esegue la costruzione del dataset usando PathManager.
     
     Args:
         config: Configurazione del progetto
@@ -75,21 +79,24 @@ def run_build_dataset(config: Dict[str, Any], raw_data_path: str) -> str:
     logger = get_logger(__name__)
     logger.info("=== FASE 2: COSTRUZIONE DATASET ===")
     
-    paths = config.get('paths', {})
-    output_path = f"{paths.get('data_processed', 'data/processed/')}dataset.parquet"
+    # Usa PathManager per gestire i path
+    path_manager = create_path_manager(config)
+    output_path = path_manager.get_dataset_path()
     
     # Verifica se il dataset esiste già
     if check_file_exists(output_path) and not config.get('execution', {}).get('force_reload', False):
-        logger.info(f"Dataset già esistente: {output_path}")
+        logger.info(f"📁 Dataset già esistente: {output_path}")
         return output_path
     
     # Costruisce dataset
+    logger.info(f"🔄 Costruzione dataset: {raw_data_path} → {output_path}")
     build_dataset(raw_data_path, output_path)
+    logger.info(f"✅ Dataset costruito: {output_path}")
     return output_path
 
 def run_preprocessing(config: Dict[str, Any], dataset_path: str) -> Dict[str, str]:
     """
-    Esegue il preprocessing completo.
+    RISTRUTTURATA: Esegue il preprocessing completo usando PathManager.
     
     Args:
         config: Configurazione del progetto
@@ -101,38 +108,32 @@ def run_preprocessing(config: Dict[str, Any], dataset_path: str) -> Dict[str, st
     logger = get_logger(__name__)
     logger.info("=== FASE 3: PREPROCESSING ===")
     
-    paths = config.get('paths', {})
+    # Usa PathManager per gestire i path
+    path_manager = create_path_manager(config)
     target_config = config.get('target', {})
     preprocessing_config = config.get('preprocessing', {})
     
     target_column = target_config.get('column', 'AI_Prezzo_Ridistribuito')
     
-    # Path di output
-    output_paths = {
-        'train_features': f"{paths.get('data_processed', 'data/processed/')}X_train.parquet",
-        'val_features': f"{paths.get('data_processed', 'data/processed/')}X_val.parquet",
-        'test_features': f"{paths.get('data_processed', 'data/processed/')}X_test.parquet", 
-        'train_target': f"{paths.get('data_processed', 'data/processed/')}y_train.parquet",
-        'val_target': f"{paths.get('data_processed', 'data/processed/')}y_val.parquet",
-        'test_target': f"{paths.get('data_processed', 'data/processed/')}y_test.parquet",
-        'val_target_orig': f"{paths.get('data_processed', 'data/processed/')}y_val_orig.parquet",
-        'test_target_orig': f"{paths.get('data_processed', 'data/processed/')}y_test_orig.parquet",
-        'preprocessing_info': f"{paths.get('data_processed', 'data/processed/')}preprocessing_info.json"
-    }
+    # Ottieni path di output dal PathManager (elimina duplicazione)
+    output_paths = path_manager.get_preprocessing_paths()
     
     # Verifica se i file esistono già
     all_exist = all(check_file_exists(path) for path in output_paths.values())
     if all_exist and not config.get('execution', {}).get('force_reload', False):
-        logger.info("File preprocessing già esistenti")
+        logger.info("📁 File preprocessing già esistenti")
         return output_paths
     
     # Esegue preprocessing
+    logger.info(f"🔄 Avvio preprocessing: {dataset_path}")
+    logger.info(f"🎯 Target column: {target_column}")
     run_preprocessing_pipeline(
         dataset_path=dataset_path,
         target_column=target_column,
         config=preprocessing_config,
         output_paths=output_paths
     )
+    logger.info(f"✅ Preprocessing completato, {len(output_paths)} file generati")
     
     return output_paths
 
@@ -160,7 +161,7 @@ def run_training(config: Dict[str, Any], preprocessing_paths: Dict[str, str]) ->
 
 def run_evaluation(config: Dict[str, Any], training_results: Dict[str, Any], preprocessing_paths: Dict[str, str]) -> Dict[str, Any]:
     """
-    Esegue la valutazione dei modelli.
+    RISTRUTTURATA: Esegue la valutazione dei modelli usando PathManager.
     
     Args:
         config: Configurazione del progetto
@@ -173,21 +174,17 @@ def run_evaluation(config: Dict[str, Any], training_results: Dict[str, Any], pre
     logger = get_logger(__name__)
     logger.info("=== FASE 5: EVALUATION ===")
     
-    paths = config.get('paths', {})
-    
-    # Path di output per evaluation
-    output_paths = {
-        'results_dir': paths.get('logs', 'logs/'),
-        'feature_importance_path': f"{paths.get('data_processed', 'data/processed/')}feature_importance.csv",
-        'evaluation_summary_path': f"{paths.get('data_processed', 'data/processed/')}evaluation_summary.json"
-    }
+    # Usa PathManager per gestire i path
+    path_manager = create_path_manager(config)
+    output_paths = path_manager.get_evaluation_paths()
     
     # Esegue evaluation pipeline
+    logger.info(f"🔄 Avvio evaluation con {len(output_paths)} output path")
     evaluation_results = run_evaluation_pipeline(
         training_results, preprocessing_paths, config, output_paths
     )
     
-    logger.info("Evaluation completata con successo")
+    logger.info("✅ Evaluation completata con successo")
     return evaluation_results
 
 def main():
@@ -215,11 +212,13 @@ def main():
         
         # Setup logger
         logger = setup_logger(args.config)
-        logger.info("=== AVVIO PIPELINE ML ===")
-        logger.info(f"Configurazione caricata da: {args.config}")
+        logger.info("=== AVVIO PIPELINE ML RISTRUTTURATA ===")
+        logger.info(f"📄 Configurazione caricata da: {args.config}")
         
-        # Setup directory
-        setup_directories(config)
+        # Setup PathManager e directory
+        path_manager = create_path_manager(config)
+        path_manager.ensure_all_directories()
+        logger.info(f"🗂️  PathManager attivato: {path_manager}")
         
         # Determina step da eseguire
         steps_to_run = args.steps if args.steps else config.get('execution', {}).get('steps', [])
@@ -237,30 +236,23 @@ def main():
         
         if 'build_dataset' in steps_to_run:
             if raw_data_path is None:
-                paths = config.get('paths', {})
-                raw_data_path = f"{paths.get('data_raw', 'data/raw/')}raw_data.parquet"
+                # Usa PathManager invece di ricostruire manualmente i path
+                raw_data_path = path_manager.get_raw_data_path()
+                logger.info(f"🔗 Path dati grezzi ricostruito: {raw_data_path}")
             dataset_path = run_build_dataset(config, raw_data_path)
         
         if 'preprocessing' in steps_to_run:
             if dataset_path is None:
-                paths = config.get('paths', {})
-                dataset_path = f"{paths.get('data_processed', 'data/processed/')}dataset.parquet"
+                # Usa PathManager invece di ricostruire manualmente i path
+                dataset_path = path_manager.get_dataset_path()
+                logger.info(f"🔗 Path dataset ricostruito: {dataset_path}")
             preprocessing_paths = run_preprocessing(config, dataset_path)
         
         if 'training' in steps_to_run:
             if preprocessing_paths is None:
-                paths = config.get('paths', {})
-                preprocessing_paths = {
-                    'train_features': f"{paths.get('data_processed', 'data/processed/')}X_train.parquet",
-                    'val_features': f"{paths.get('data_processed', 'data/processed/')}X_val.parquet",
-                    'test_features': f"{paths.get('data_processed', 'data/processed/')}X_test.parquet",
-                    'train_target': f"{paths.get('data_processed', 'data/processed/')}y_train.parquet",
-                    'val_target': f"{paths.get('data_processed', 'data/processed/')}y_val.parquet",
-                    'test_target': f"{paths.get('data_processed', 'data/processed/')}y_test.parquet",
-                    'val_target_orig': f"{paths.get('data_processed', 'data/processed/')}y_val_orig.parquet",
-                    'test_target_orig': f"{paths.get('data_processed', 'data/processed/')}y_test_orig.parquet",
-                    'preprocessing_info': f"{paths.get('data_processed', 'data/processed/')}preprocessing_info.json"
-                }
+                # Usa PathManager invece di ricostruire manualmente i path (elimina duplicazione critica)
+                preprocessing_paths = path_manager.get_preprocessing_paths()
+                logger.info(f"🔗 Path preprocessing ricostruiti: {len(preprocessing_paths)} file")
             training_results = run_training(config, preprocessing_paths)
         
         if 'evaluation' in steps_to_run:

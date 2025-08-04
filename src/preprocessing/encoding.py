@@ -3,12 +3,14 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import TargetEncoder
 from typing import Tuple, Dict, Any, List
 from ..utils.logger import get_logger
+from .data_cleaning_core import convert_to_numeric_unified
 
 logger = get_logger(__name__)
 
 def auto_convert_to_numeric(df: pd.DataFrame) -> Tuple[pd.DataFrame, List[str]]:
     """
-    Tenta conversione automatica a numerico per colonne object.
+    DEPRECATA: Usa convert_to_numeric_unified dal modulo data_cleaning_core.
+    Mantenuta per compatibilità con codice esistente.
     
     Args:
         df: DataFrame da convertire
@@ -16,26 +18,18 @@ def auto_convert_to_numeric(df: pd.DataFrame) -> Tuple[pd.DataFrame, List[str]]:
     Returns:
         Tuple con DataFrame convertito e lista colonne convertite
     """
-    logger.info("Conversione automatica a numerico...")
+    logger.warning("⚠️  auto_convert_to_numeric è DEPRECATA, usa convert_to_numeric_unified")
     
-    object_cols = df.select_dtypes(include='object').columns
-    converted = []
+    # Usa la funzione unificata con threshold più permissivo (default 0.8 vs quello implicito di questa funzione)
+    df_converted, conversion_info = convert_to_numeric_unified(
+        df=df, 
+        target_column="__NONE__",  # Nessun target da escludere in questo contesto
+        threshold=0.0  # Threshold 0 per convertire qualsiasi colonna che ha anche solo 1 valore convertibile
+    )
     
-    for col in object_cols:
-        try:
-            original_dtype = df[col].dtype
-            df[col] = pd.to_numeric(df[col], errors='coerce')
-            if df[col].dtype != original_dtype:
-                converted.append(col)
-        except:
-            continue
-    
-    if converted:
-        logger.info(f"Convertite a numerico {len(converted)} colonne: {converted}")
-    else:
-        logger.info("Nessuna colonna convertita")
-    
-    return df, converted
+    # Mantieni compatibilità con l'interfaccia originale
+    converted_columns = conversion_info.get('converted_columns', [])
+    return df_converted, converted_columns
 
 def advanced_categorical_encoding(
     df: pd.DataFrame, 
