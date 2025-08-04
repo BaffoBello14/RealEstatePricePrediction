@@ -1,6 +1,6 @@
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
-from sklearn.preprocessing import TargetEncoder
+from category_encoders.target_encoder import TargetEncoder
 from typing import Tuple, Dict, Any, List
 from ..utils.logger import get_logger
 from .data_cleaning_core import convert_to_numeric_unified

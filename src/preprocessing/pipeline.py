@@ -398,7 +398,7 @@ def apply_target_encoding_post_split(
     Returns:
         Tuple con X_train, X_val, X_test encodati e info
     """
-    from sklearn.preprocessing import TargetEncoder
+    from category_encoders.target_encoder import TargetEncoder
     
     logger.info("Applicazione target encoding post-split...")
     
