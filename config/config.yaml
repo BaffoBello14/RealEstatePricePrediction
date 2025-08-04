@@ -130,7 +130,7 @@ training:
   # ranking_metric: 'Val_RMSE'
   
   # Optuna optimization
-  n_trials: 10
+  n_trials: 5
   optuna_timeout: 7200  # 2 ore in secondi
   optuna_pruning_percentile: 25
   
@@ -160,7 +160,7 @@ models:
     catboost: true
     lightgbm: true
     hist_gradient_boosting: true
-    # tabm: false  # Temporarily disabled due to k parameter issues
+    tabm: true
   
   # Ensemble models
   ensemble:

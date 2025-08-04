@@ -44,7 +44,6 @@ RealEstatePricePrediction/
 ├── 📁 data/
 │   ├── raw/                   # Dati grezzi estratti dal DB
 │   ├── processed/             # Dataset dopo preprocessing
-│   ├── interim/               # Dati intermedi (opzionale)
 │   └── db_schema.json         # Schema database OMI
 │
 ├── 📁 logs/                   # File di log generati automaticamente
