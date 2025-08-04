@@ -156,28 +156,54 @@ def evaluate_single_model(model, X_train, y_train, X_val, y_val, model_name: str
         try:
             val_r2 = r2_score(y_val, y_pred_val)
             
-            # Diagnostics dettagliati se R² è estremamente negativo
-            if val_r2 < -1000:
-                logger.warning(f"🔍 DIAGNOSTICS R² per {model_name}:")
-                logger.warning(f"   Val R²: {val_r2:.2e}")
-                logger.warning(f"   Val RMSE: {val_rmse:.2f}")
-                
-                # Calcolo manuale dei componenti R²
-                y_val_mean = np.mean(y_val)
-                ss_res = np.sum((y_val - y_pred_val) ** 2)
-                ss_tot = np.sum((y_val - y_val_mean) ** 2)
-                
-                logger.warning(f"   Target mean: {y_val_mean:.2e}")
-                logger.warning(f"   Target std: {np.std(y_val):.2e}")
-                logger.warning(f"   Target range: {np.ptp(y_val):.2e}")
-                logger.warning(f"   SS_res: {ss_res:.2e}")
-                logger.warning(f"   SS_tot: {ss_tot:.2e}")
-                logger.warning(f"   Pred mean: {np.mean(y_pred_val):.2e}")
-                logger.warning(f"   Pred std: {np.std(y_pred_val):.2e}")
-                logger.warning(f"   Pred range: {np.ptp(y_pred_val):.2e}")
-                
-                if ss_tot < 1e-10:
-                    logger.error(f"⚠️ SS_tot troppo piccolo ({ss_tot:.2e}) - target quasi costante!")
+                         # Diagnostics dettagliati se R² è estremamente negativo
+             if val_r2 < -1000:
+                 logger.warning(f"🔍 DIAGNOSTICS R² per {model_name}:")
+                 logger.warning(f"   Val R²: {val_r2:.2e}")
+                 logger.warning(f"   Val RMSE: {val_rmse:.2f}")
+                 
+                 # Calcolo manuale dei componenti R²
+                 y_val_mean = np.mean(y_val)
+                 ss_res = np.sum((y_val - y_pred_val) ** 2)
+                 ss_tot = np.sum((y_val - y_val_mean) ** 2)
+                 
+                 logger.warning(f"   Target mean: {y_val_mean:.2e}")
+                 logger.warning(f"   Target std: {np.std(y_val):.2e}")
+                 logger.warning(f"   Target range: {np.ptp(y_val):.2e}")
+                 logger.warning(f"   SS_res: {ss_res:.2e}")
+                 logger.warning(f"   SS_tot: {ss_tot:.2e}")
+                 logger.warning(f"   Pred mean: {np.mean(y_pred_val):.2e}")
+                 logger.warning(f"   Pred std: {np.std(y_pred_val):.2e}")
+                 logger.warning(f"   Pred range: {np.ptp(y_pred_val):.2e}")
+                 
+                 # Verifiche aggiuntive
+                 logger.warning(f"   Target type: {type(y_val)}, shape: {getattr(y_val, 'shape', 'No shape')}")
+                 logger.warning(f"   Pred type: {type(y_pred_val)}, shape: {getattr(y_pred_val, 'shape', 'No shape')}")
+                 
+                 # Check per allineamento dati
+                 if hasattr(y_val, 'index') and hasattr(y_pred_val, 'index'):
+                     if not y_val.index.equals(y_pred_val.index):
+                         logger.error(f"⚠️ INDICI NON ALLINEATI tra y_val e y_pred_val!")
+                 
+                 # Esempi di valori
+                 logger.warning(f"   Primi 5 target: {y_val.iloc[:5].tolist() if hasattr(y_val, 'iloc') else list(y_val[:5])}")
+                 logger.warning(f"   Primi 5 pred:   {y_pred_val[:5].tolist() if hasattr(y_pred_val, 'tolist') else list(y_pred_val[:5])}")
+                 
+                 # Calcolo R² con sklearn per verifica
+                 try:
+                     r2_manual = 1 - (ss_res / ss_tot)
+                     logger.warning(f"   R² manual: {r2_manual:.2e}")
+                 except:
+                     logger.warning(f"   R² manual: ERROR")
+                 
+                 if ss_tot < 1e-10:
+                     logger.error(f"⚠️ SS_tot troppo piccolo ({ss_tot:.2e}) - target quasi costante!")
+                 
+                 # Check per valori estremi nelle predizioni
+                 extreme_preds = np.abs(y_pred_val) > 1e6
+                 if np.any(extreme_preds):
+                     n_extreme = np.sum(extreme_preds)
+                     logger.error(f"⚠️ {n_extreme} predizioni estreme (>1M) che potrebbero causare overflow!")
                 
         except Exception as e:
             logger.error(f"Errore nel calcolo R² validation per {model_name}: {e}")
