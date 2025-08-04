@@ -10,14 +10,11 @@ from typing import Dict, Any
 # Aggiungi src al path
 sys.path.append(str(Path(__file__).parent / "src"))
 
-from src.utils.logger import setup_logger, get_logger
-from src.utils.io import load_config, check_file_exists
-from src.utils.path_manager import create_path_manager
-from src.db.retrieve import retrieve_data
-from src.dataset.build_dataset import build_dataset
-from src.preprocessing.pipeline import run_preprocessing_pipeline
-from src.training.train import run_training_pipeline
-from src.training.evaluation import run_evaluation_pipeline
+from src import (
+    setup_logger, get_logger,
+    load_config, check_file_exists,
+    PipelineOrchestrator
+)
 
 def setup_directories(config: Dict[str, Any]) -> None:
     """
@@ -215,53 +212,13 @@ def main():
         logger.info("=== AVVIO PIPELINE ML RISTRUTTURATA ===")
         logger.info(f"📄 Configurazione caricata da: {args.config}")
         
-        # Setup PathManager e directory
-        path_manager = create_path_manager(config)
-        path_manager.ensure_all_directories()
-        logger.info(f"🗂️  PathManager attivato: {path_manager}")
+        # Inizializza orchestratore pipeline
+        orchestrator = PipelineOrchestrator(config)
+        orchestrator.setup_environment()
         
-        # Determina step da eseguire
-        steps_to_run = args.steps if args.steps else config.get('execution', {}).get('steps', [])
-        logger.info(f"Step da eseguire: {steps_to_run}")
-        
-        # Variabili per passaggio dati tra step
-        raw_data_path = None
-        dataset_path = None
-        preprocessing_paths = None
-        training_results = None
-        
-        # Esecuzione step
-        if 'retrieve_data' in steps_to_run:
-            raw_data_path = run_retrieve_data(config)
-        
-        if 'build_dataset' in steps_to_run:
-            if raw_data_path is None:
-                # Usa PathManager invece di ricostruire manualmente i path
-                raw_data_path = path_manager.get_raw_data_path()
-                logger.info(f"🔗 Path dati grezzi ricostruito: {raw_data_path}")
-            dataset_path = run_build_dataset(config, raw_data_path)
-        
-        if 'preprocessing' in steps_to_run:
-            if dataset_path is None:
-                # Usa PathManager invece di ricostruire manualmente i path
-                dataset_path = path_manager.get_dataset_path()
-                logger.info(f"🔗 Path dataset ricostruito: {dataset_path}")
-            preprocessing_paths = run_preprocessing(config, dataset_path)
-        
-        if 'training' in steps_to_run:
-            if preprocessing_paths is None:
-                # Usa PathManager invece di ricostruire manualmente i path (elimina duplicazione critica)
-                preprocessing_paths = path_manager.get_preprocessing_paths()
-                logger.info(f"🔗 Path preprocessing ricostruiti: {len(preprocessing_paths)} file")
-            training_results = run_training(config, preprocessing_paths)
-        
-        if 'evaluation' in steps_to_run:
-            if training_results is None:
-                logger.error("Training results non disponibili per evaluation. Eseguire prima il training.")
-            else:
-                run_evaluation(config, training_results, preprocessing_paths)
-        
-        logger.info("=== PIPELINE COMPLETATA CON SUCCESSO ===")
+        # Determina e esegue step
+        steps_to_run = args.steps if args.steps else None
+        results = orchestrator.run_pipeline(steps_to_run)
         
     except Exception as e:
         logger = get_logger(__name__)
