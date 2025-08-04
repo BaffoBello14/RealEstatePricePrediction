@@ -33,7 +33,7 @@ preprocessing:
     enable_pca: false
     
     # Nuovi step pipeline modularizzata
-    enable_data_cleaning: true           # Step 2: Pulizia dati unificata
+    enable_data_cleaning: true          # Step 2: Pulizia dati unificata
     enable_feature_analysis: true       # Step 3: Analisi feature e correlazioni  
     enable_imputation: true             # Step 5: Imputazione valori mancanti
     enable_target_processing: true      # Step 8: Target processing e outlier detection
