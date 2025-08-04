@@ -544,17 +544,25 @@ def apply_transformations(
         # Restituisci i dati trasformati + info
         return tuple(results) + (transformation_info,)
 
-def inverse_transform_target(y_log: pd.Series) -> pd.Series:
+def inverse_transform_target(y_log: pd.Series, shift_applied: float = 0) -> pd.Series:
     """
     Inverte la trasformazione logaritmica del target.
     
     Args:
         y_log: Target log-trasformato
+        shift_applied: Costante che era stata aggiunta prima della trasformazione logaritmica
         
     Returns:
         Target nella scala originale
     """
-    return np.expm1(y_log)  # Inverso di log1p
+    # Inverso di log1p
+    y_original = np.expm1(y_log)
+    
+    # Rimuovi lo shift se era stato applicato
+    if shift_applied > 0:
+        y_original = y_original - shift_applied
+    
+    return y_original
 
 def transform_target_log(y_train: pd.Series) -> Tuple[pd.Series, Dict[str, Any]]:
     """
@@ -570,11 +578,42 @@ def transform_target_log(y_train: pd.Series) -> Tuple[pd.Series, Dict[str, Any]]
     
     logger.info("Applicazione trasformazione logaritmica al target...")
     
-    # Calcola skewness originale
-    original_skew = stats.skew(y_train)
+    # Verifica se la trasformazione logaritmica è appropriata
+    min_value = y_train.min()
+    if min_value < -1:
+        logger.warning(f"⚠️ Valore minimo del target ({min_value:.2f}) < -1. La trasformazione log1p potrebbe produrre valori non validi.")
+        logger.warning("⚠️ Considerare di utilizzare una trasformazione diversa o di aggiungere una costante al target.")
+        
+        # Aggiungi una costante per rendere tutti i valori >= 0
+        shift_constant = abs(min_value) + 1
+        logger.info(f"Aggiungendo costante {shift_constant:.2f} per evitare valori negativi")
+        y_train_shifted = y_train + shift_constant
+        
+        # Calcola skewness originale sui dati shiftati
+        original_skew = stats.skew(y_train_shifted)
+        
+        # Applica trasformazione log1p sui dati shiftati
+        y_train_log = np.log1p(y_train_shifted)
+        
+        # Memorizzo lo shift applicato
+        shift_applied = shift_constant
+    else:
+        # Calcola skewness originale
+        original_skew = stats.skew(y_train)
+        
+        # Applica trasformazione log1p (log(1+x) per gestire valori zero)
+        y_train_log = np.log1p(y_train)
+        shift_applied = 0
     
-    # Applica trasformazione log1p (log(1+x) per gestire valori zero)
-    y_train_log = np.log1p(y_train)
+    # Verifica presenza di valori non validi
+    n_invalid = np.sum(~np.isfinite(y_train_log))
+    if n_invalid > 0:
+        logger.error(f"⚠️ La trasformazione logaritmica ha prodotto {n_invalid} valori non validi (NaN/inf)!")
+        logger.error(f"Valori problematici: min={y_train_log.min():.3f}, max={y_train_log.max():.3f}")
+        # Sostituisci valori non validi con il valore mediano
+        median_val = np.nanmedian(y_train_log[np.isfinite(y_train_log)])
+        y_train_log = np.where(np.isfinite(y_train_log), y_train_log, median_val)
+        logger.warning(f"Sostituiti valori non validi con mediana: {median_val:.3f}")
     
     # Calcola skewness dopo trasformazione
     log_skew = stats.skew(y_train_log)
@@ -582,12 +621,15 @@ def transform_target_log(y_train: pd.Series) -> Tuple[pd.Series, Dict[str, Any]]
     logger.info(f"Skewness originale: {original_skew:.3f}")
     logger.info(f"Skewness dopo log: {log_skew:.3f}")
     logger.info(f"Miglioramento skewness: {abs(original_skew) - abs(log_skew):.3f}")
+    if n_invalid > 0:
+        logger.info(f"Valori non validi corretti: {n_invalid}")
     
     # Informazioni sulla trasformazione
     transform_info = {
         'original_skew': float(original_skew),
         'log_skew': float(log_skew),
         'skew_improvement': float(abs(original_skew) - abs(log_skew)),
+        'shift_applied': float(shift_applied),
         'target_bounds': {
             'original_min': float(y_train.min()),
             'original_max': float(y_train.max()),

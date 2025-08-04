@@ -82,6 +82,32 @@ def evaluate_single_model(model, X_train, y_train, X_val, y_val, model_name: str
         Dictionary con metriche di valutazione
     """
     try:
+        # Verifiche di sanità sui dati prima del training
+        logger.debug(f"Verifiche pre-training per {model_name}...")
+        
+        # Verifica y_train
+        if not np.isfinite(y_train).all():
+            n_invalid_train = np.sum(~np.isfinite(y_train))
+            logger.warning(f"⚠️  {model_name}: {n_invalid_train} valori non validi in y_train")
+        
+        # Verifica y_val
+        if not np.isfinite(y_val).all():
+            n_invalid_val = np.sum(~np.isfinite(y_val))
+            logger.warning(f"⚠️  {model_name}: {n_invalid_val} valori non validi in y_val")
+        
+        # Verifica X_train
+        if not np.isfinite(X_train.values if hasattr(X_train, 'values') else X_train).all():
+            n_invalid_X_train = np.sum(~np.isfinite(X_train.values if hasattr(X_train, 'values') else X_train))
+            logger.warning(f"⚠️  {model_name}: {n_invalid_X_train} valori non validi in X_train")
+        
+        # Verifica scale del target
+        y_train_std = np.std(y_train)
+        y_train_range = np.ptp(y_train)
+        if y_train_range > 1e6:
+            logger.warning(f"⚠️  {model_name}: Range del target molto ampio ({y_train_range:.0f}). Considerare normalizzazione.")
+        if y_train_std > 1e4:
+            logger.warning(f"⚠️  {model_name}: Deviazione standard del target molto alta ({y_train_std:.0f}). Considerare normalizzazione.")
+        
         # Training
         start_time = datetime.now()
         model.fit(X_train, y_train)
@@ -90,6 +116,15 @@ def evaluate_single_model(model, X_train, y_train, X_val, y_val, model_name: str
         # Predizioni
         y_pred_train = model.predict(X_train)
         y_pred_val = model.predict(X_val)
+        
+        # Verifica predizioni
+        if not np.isfinite(y_pred_train).all():
+            n_invalid_pred_train = np.sum(~np.isfinite(y_pred_train))
+            logger.warning(f"⚠️  {model_name}: {n_invalid_pred_train} predizioni non valide su training set")
+            
+        if not np.isfinite(y_pred_val).all():
+            n_invalid_pred_val = np.sum(~np.isfinite(y_pred_val))
+            logger.warning(f"⚠️  {model_name}: {n_invalid_pred_val} predizioni non valide su validation set")
         
         # Metriche
         train_rmse = np.sqrt(mean_squared_error(y_train, y_pred_train))

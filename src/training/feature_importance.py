@@ -587,12 +587,23 @@ def get_ensemble_feature_importance_fast(
         Array con feature importance o None se non disponibile
     """
     try:
-        # Per StackingRegressor, prova a ottenere importance dai base estimators
+        # Per ensemble models, prova a ottenere importance dai base estimators
         if hasattr(model, 'estimators_') and model.estimators_:
             logger.info(f"Calcolo feature importance media dai base estimators per {model_name}...")
             
             all_importances = []
-            for i, (name, estimator) in enumerate(model.estimators_):
+            
+            # Gestisce VotingRegressor (estimators_ è una lista di estimatori)
+            # e StackingRegressor (estimators può essere una lista di tuple)
+            for i, estimator_item in enumerate(model.estimators_):
+                if isinstance(estimator_item, tuple):
+                    # StackingRegressor: (name, estimator)
+                    name, estimator = estimator_item
+                else:
+                    # VotingRegressor: estimator direttamente
+                    name = f"estimator_{i}"
+                    estimator = estimator_item
+                
                 if hasattr(estimator, 'feature_importances_'):
                     importance = estimator.feature_importances_
                     all_importances.append(importance)
