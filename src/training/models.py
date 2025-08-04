@@ -213,6 +213,19 @@ def objective_hist_gradient_boosting(trial, X_train, y_train, cv_folds=5, random
 
 def objective_tabm(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1, cv_strategy=None, config=None):
     """Funzione obiettivo per TabM"""
+    
+    # Determina il numero di features numeriche
+    n_num_features = X_train.shape[1]
+    
+    # Per ora assumiamo che non ci siano features categoriche
+    # In futuro si potrebbe estendere per supportare features categoriche
+    cat_cardinalities = []
+    
+    # Se non ci sono features numeriche, salta TabM
+    if n_num_features == 0:
+        logger.warning("⚠️ TabM richiede almeno una feature numerica. Skipping TabM optimization.")
+        return float('-inf')  # Valore pessimo per indicare che il modello non può essere usato
+    
     params = {
         'n_estimators': trial.suggest_int('n_estimators', 100, 1000, step=50),
         'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, log=True),
@@ -226,7 +239,9 @@ def objective_tabm(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=
         'd_out': 1,
         'random_state': random_state,
         'n_jobs': n_jobs,
-        'verbosity': 0
+        'verbosity': 0,
+        'n_num_features': n_num_features,
+        'cat_cardinalities': cat_cardinalities
     }
     
     model = TabM(**params)
@@ -265,6 +280,12 @@ def create_model_from_params(model_name: str, params: Dict[str, Any]) -> Any:
     elif model_name == "HistGradientBoosting":
         return HistGradientBoostingRegressor(**params)
     elif model_name == "TabM":
+        # Assicuriamoci che i parametri necessari per TabM siano presenti
+        if 'n_num_features' not in params or 'cat_cardinalities' not in params:
+            logger.warning("⚠️ TabM richiede n_num_features e cat_cardinalities. Aggiungendo valori di default.")
+            # Assume che abbiamo solo features numeriche se non specificato
+            params.setdefault('n_num_features', 1)  # Sarà aggiornato durante il training
+            params.setdefault('cat_cardinalities', [])
         return TabM(**params)
     else:
         raise ValueError(f"Modello non supportato: {model_name}")
