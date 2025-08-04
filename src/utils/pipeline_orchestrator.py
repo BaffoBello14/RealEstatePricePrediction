@@ -146,13 +146,17 @@ class PipelineOrchestrator:
         
         self.logger.info("=== FASE 1: RECUPERO DATI ===")
         
-        schema_path = self.path_manager.get_database_schema_path()
+        # Ottieni parametri dalla configurazione
+        database_config = self.config.get('database', {})
+        schema_path = database_config.get('schema_path', 'data/db_schema.json')
+        selected_aliases = database_config.get('selected_aliases', ["A", "AI", "PC", "ISC", "II", "PC_OZ", "OZ", "OV"])
+        
         output_path = self.path_manager.get_raw_data_path()
         
         # Esecuzione recupero dati
         result_path = retrieve_data(
-            config=self.config,
             schema_path=schema_path,
+            selected_aliases=selected_aliases,
             output_path=output_path
         )
         
