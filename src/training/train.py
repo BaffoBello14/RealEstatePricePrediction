@@ -103,10 +103,26 @@ def evaluate_single_model(model, X_train, y_train, X_val, y_val, model_name: str
         # Verifica scale del target
         y_train_std = np.std(y_train)
         y_train_range = np.ptp(y_train)
+        y_val_std = np.std(y_val)
+        y_val_range = np.ptp(y_val)
+        
+        logger.debug(f"{model_name} - Target stats:")
+        logger.debug(f"  Train: mean={np.mean(y_train):.2e}, std={y_train_std:.2e}, range={y_train_range:.2e}")
+        logger.debug(f"  Val:   mean={np.mean(y_val):.2e}, std={y_val_std:.2e}, range={y_val_range:.2e}")
+        
         if y_train_range > 1e6:
-            logger.warning(f"⚠️  {model_name}: Range del target molto ampio ({y_train_range:.0f}). Considerare normalizzazione.")
+            logger.warning(f"⚠️  {model_name}: Range del target training molto ampio ({y_train_range:.0f}). Considerare normalizzazione.")
         if y_train_std > 1e4:
-            logger.warning(f"⚠️  {model_name}: Deviazione standard del target molto alta ({y_train_std:.0f}). Considerare normalizzazione.")
+            logger.warning(f"⚠️  {model_name}: Deviazione standard del target training molto alta ({y_train_std:.0f}). Considerare normalizzazione.")
+        
+        # Confronto train vs validation
+        scale_diff = abs(y_train_std - y_val_std) / max(y_train_std, 1e-10)
+        if scale_diff > 0.5:
+            logger.warning(f"⚠️  {model_name}: Grande differenza di scala tra train ({y_train_std:.2e}) e val ({y_val_std:.2e})")
+            
+        mean_diff = abs(np.mean(y_train) - np.mean(y_val)) / max(abs(np.mean(y_train)), 1e-10)
+        if mean_diff > 0.3:
+            logger.warning(f"⚠️  {model_name}: Grande differenza di media tra train ({np.mean(y_train):.2e}) e val ({np.mean(y_val):.2e})")
         
         # Training
         start_time = datetime.now()
@@ -126,11 +142,46 @@ def evaluate_single_model(model, X_train, y_train, X_val, y_val, model_name: str
             n_invalid_pred_val = np.sum(~np.isfinite(y_pred_val))
             logger.warning(f"⚠️  {model_name}: {n_invalid_pred_val} predizioni non valide su validation set")
         
-        # Metriche
+        # Metriche con diagnostics dettagliati
         train_rmse = np.sqrt(mean_squared_error(y_train, y_pred_train))
         val_rmse = np.sqrt(mean_squared_error(y_val, y_pred_val))
-        train_r2 = r2_score(y_train, y_pred_train)
-        val_r2 = r2_score(y_val, y_pred_val)
+        
+        # Calcolo R² con diagnostics
+        try:
+            train_r2 = r2_score(y_train, y_pred_train)
+        except Exception as e:
+            logger.error(f"Errore nel calcolo R² training per {model_name}: {e}")
+            train_r2 = float('-inf')
+            
+        try:
+            val_r2 = r2_score(y_val, y_pred_val)
+            
+            # Diagnostics dettagliati se R² è estremamente negativo
+            if val_r2 < -1000:
+                logger.warning(f"🔍 DIAGNOSTICS R² per {model_name}:")
+                logger.warning(f"   Val R²: {val_r2:.2e}")
+                logger.warning(f"   Val RMSE: {val_rmse:.2f}")
+                
+                # Calcolo manuale dei componenti R²
+                y_val_mean = np.mean(y_val)
+                ss_res = np.sum((y_val - y_pred_val) ** 2)
+                ss_tot = np.sum((y_val - y_val_mean) ** 2)
+                
+                logger.warning(f"   Target mean: {y_val_mean:.2e}")
+                logger.warning(f"   Target std: {np.std(y_val):.2e}")
+                logger.warning(f"   Target range: {np.ptp(y_val):.2e}")
+                logger.warning(f"   SS_res: {ss_res:.2e}")
+                logger.warning(f"   SS_tot: {ss_tot:.2e}")
+                logger.warning(f"   Pred mean: {np.mean(y_pred_val):.2e}")
+                logger.warning(f"   Pred std: {np.std(y_pred_val):.2e}")
+                logger.warning(f"   Pred range: {np.ptp(y_pred_val):.2e}")
+                
+                if ss_tot < 1e-10:
+                    logger.error(f"⚠️ SS_tot troppo piccolo ({ss_tot:.2e}) - target quasi costante!")
+                
+        except Exception as e:
+            logger.error(f"Errore nel calcolo R² validation per {model_name}: {e}")
+            val_r2 = float('-inf')
         train_mae = mean_absolute_error(y_train, y_pred_train)
         val_mae = mean_absolute_error(y_val, y_pred_val)
         
