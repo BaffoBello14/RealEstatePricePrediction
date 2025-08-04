@@ -11,8 +11,12 @@ from sklearn.decomposition import PCA
 import tempfile
 
 from src.preprocessing.cleaning import (
-    remove_specific_columns, remove_constant_columns, clean_data,
-    convert_to_numeric, detect_outliers_multimethod
+    remove_specific_columns, remove_constant_columns,
+    detect_outliers_multimethod
+)
+from src.preprocessing.data_cleaning_core import (
+    convert_to_numeric_unified,
+    clean_dataframe_unified
 )
 from src.preprocessing.filtering import (
     analyze_cramers_correlations, remove_highly_correlated_numeric_pre_split
@@ -81,7 +85,7 @@ class TestCleaning:
             'target': [10, 20, 30, 40]
         })
         
-        df_converted, info = convert_to_numeric(df, 'target', threshold=0.8)
+        df_converted, info = convert_to_numeric_unified(df, 'target', threshold=0.8)
         
         # Verifica conversioni
         assert pd.api.types.is_numeric_dtype(df_converted['numeric_string'])
@@ -114,7 +118,11 @@ class TestCleaning:
         """Test integrazione completa clean_data."""
         config = sample_config['preprocessing']
         
-        df_cleaned, info = clean_data(sample_dataframe, 'AI_Prezzo_Ridistribuito', config)
+        df_cleaned, info = clean_dataframe_unified(
+            sample_dataframe, 'AI_Prezzo_Ridistribuito',
+            remove_empty_strings=True, remove_duplicates=True,
+            remove_empty_columns=True, remove_target_nulls=True
+        )
         
         # Verifica che la pulizia sia avvenuta
         assert 'A_Id' not in df_cleaned.columns  # Dovrebbe essere rimossa
@@ -422,11 +430,11 @@ class TestPreprocessingEdgeCases:
         # Molti algoritmi potrebbero non funzionare con un solo campione
         # ma non dovrebbe crashare
         try:
-            df_cleaned, info = clean_data(df, 'target', {
-                'steps': {'enable_specific_columns_removal': False},
-                'columns_to_remove': [],
-                'constant_column_threshold': 0.95
-            })
+            df_cleaned, info = clean_dataframe_unified(
+                df, 'target',
+                remove_empty_strings=True, remove_duplicates=True,
+                remove_empty_columns=True, remove_target_nulls=True
+            )
             assert len(df_cleaned) == 1
         except Exception as e:
             # È accettabile che alcuni algoritmi falliscano con un solo campione

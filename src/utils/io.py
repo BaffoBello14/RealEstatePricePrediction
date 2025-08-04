@@ -27,6 +27,24 @@ def load_config(config_path: str = "config/config.yaml") -> Dict[str, Any]:
         logger.error(f"Errore nel caricamento della configurazione: {e}")
         raise
 
+def save_config(config: Dict[str, Any], config_path: str = "config/config.yaml") -> None:
+    """
+    Salva la configurazione in un file YAML.
+    
+    Args:
+        config: Dizionario con la configurazione
+        config_path: Path del file di configurazione
+    """
+    try:
+        ensure_dir(Path(config_path).parent)
+        with open(config_path, 'w', encoding='utf-8') as f:
+            yaml.safe_dump(config, f, default_flow_style=False, sort_keys=False, 
+                          allow_unicode=True, indent=2)
+        logger.info(f"Configurazione salvata in {config_path}")
+    except Exception as e:
+        logger.error(f"Errore nel salvataggio della configurazione: {e}")
+        raise
+
 def ensure_dir(path: str) -> None:
     """
     Crea una directory se non esiste.

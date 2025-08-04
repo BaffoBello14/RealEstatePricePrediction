@@ -11,6 +11,7 @@ Contiene tutti i moduli per il preprocessing dei dati:
 # Import delle pipeline principali
 from .pipeline import run_preprocessing_pipeline
 from .pipeline_modular import run_modular_preprocessing_pipeline, PreprocessingPipeline
+from .pipeline_categorical import run_categorical_preprocessing_pipeline, CategoricalAwarePreprocessor
 
 # Import dei core modules
 from .data_cleaning_core import (
@@ -36,8 +37,7 @@ from .steps import (
 )
 
 # Import delle funzioni legacy per retrocompatibilità
-from .cleaning import convert_to_numeric, clean_data, transform_target_and_detect_outliers
-from .encoding import auto_convert_to_numeric
+from .cleaning import transform_target_and_detect_outliers
 from .imputation import impute_missing_values, handle_missing_values
 from .transformation import split_dataset_with_validation, apply_feature_scaling, apply_pca_transformation
 from .filtering import cramers_v, analyze_cramers_correlations, remove_highly_correlated_numeric_pre_split
@@ -49,6 +49,8 @@ __all__ = [
     'run_preprocessing_pipeline',
     'run_modular_preprocessing_pipeline', 
     'PreprocessingPipeline',
+    'run_categorical_preprocessing_pipeline',
+    'CategoricalAwarePreprocessor',
     
     # Core unified functions
     'convert_to_numeric_unified',
@@ -66,8 +68,7 @@ __all__ = [
     'execute_feature_analysis_step',
     
     # Legacy functions (retrocompatibilità)
-    'convert_to_numeric', 'clean_data', 'transform_target_and_detect_outliers',
-    'auto_convert_to_numeric',
+    'transform_target_and_detect_outliers',
     'impute_missing_values', 'handle_missing_values',
     'split_dataset_with_validation', 'apply_feature_scaling', 'apply_pca_transformation',
     'cramers_v', 'analyze_cramers_correlations', 'remove_highly_correlated_numeric_pre_split'

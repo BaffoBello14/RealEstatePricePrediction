@@ -108,21 +108,7 @@ def remove_constant_columns(df: pd.DataFrame, target_column: str, threshold: flo
     
     return df, removal_info
 
-def convert_to_numeric(df: pd.DataFrame, target_column: str, threshold: float = 0.8) -> Tuple[pd.DataFrame, Dict[str, Any]]:
-    """
-    DEPRECATA: Usa convert_to_numeric_unified dal modulo data_cleaning_core.
-    Mantenuta per compatibilità con codice esistente.
-    
-    Args:
-        df: DataFrame da processare
-        target_column: Nome della colonna target (da non toccare)
-        threshold: Soglia minima di conversioni valide per applicare la conversione
-        
-    Returns:
-        Tuple con DataFrame convertito e informazioni sulle conversioni
-    """
-    logger.warning("⚠️  convert_to_numeric è DEPRECATA, usa convert_to_numeric_unified")
-    return convert_to_numeric_unified(df, target_column, threshold)
+
 
 def clean_data(df: pd.DataFrame, target_column: str, config: Dict[str, Any]) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """

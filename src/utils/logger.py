@@ -30,7 +30,11 @@ def setup_logger(config_path: str) -> logging.Logger:
     log_path = Path(log_file)
     log_path.parent.mkdir(parents=True, exist_ok=True)
     
-    # Configure logging
+    # Clear any existing handlers to avoid duplication
+    for handler in logging.root.handlers[:]:
+        logging.root.removeHandler(handler)
+    
+    # Configure logging with clean slate
     handlers = [
         logging.FileHandler(log_file, encoding='utf-8'),
         logging.StreamHandler()
@@ -43,8 +47,10 @@ def setup_logger(config_path: str) -> logging.Logger:
         force=True
     )
     
-    # Return main logger
+    # Return main logger and disable propagation to avoid duplication
     logger = logging.getLogger('ML_Pipeline')
+    logger.propagate = False
+    
     return logger
 
 def get_logger(name: Optional[str] = None) -> logging.Logger:
@@ -62,12 +68,16 @@ def get_logger(name: Optional[str] = None) -> logging.Logger:
         
     logger = logging.getLogger(name)
     
-    # Only add handlers if not already configured
-    if not logger.handlers and not logging.getLogger().handlers:
-        handler = logging.StreamHandler()
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-        logger.setLevel(logging.INFO)
+    # Only add handlers if not already configured and avoid root logger duplication
+    if not logger.handlers:
+        # Check if root logger has handlers to avoid duplication
+        if not logging.getLogger().handlers:
+            handler = logging.StreamHandler()
+            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+            handler.setFormatter(formatter)
+            logger.addHandler(handler)
+            logger.setLevel(logging.INFO)
+        # Disable propagation to avoid duplication with root logger
+        logger.propagate = False
     
     return logger

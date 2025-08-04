@@ -85,7 +85,7 @@ class PipelineOrchestrator:
         self.logger.info(f"📋 Step da eseguire: {steps}")
         return steps
     
-    @safe_execution(re_raise=True)
+    @safe_execution(reraise=True)
     def run_pipeline(self, steps_to_run: Optional[List[str]] = None) -> Dict[str, Any]:
         """
         Esegue la pipeline completa con gli step specificati.
@@ -139,7 +139,7 @@ class PipelineOrchestrator:
         self.logger.info(f"🔗 Path {state_key} ricostruito: {path}")
         return path
     
-    @safe_execution(re_raise=True)
+    @safe_execution(reraise=True)
     def _execute_retrieve_data(self) -> str:
         """Esegue il recupero dati dal database."""
         from ..db.retrieve import retrieve_data
@@ -160,7 +160,7 @@ class PipelineOrchestrator:
         self.logger.info(f"📊 Dati recuperati in: {result_path}")
         return result_path
     
-    @safe_execution(re_raise=True)
+    @safe_execution(reraise=True)
     def _execute_build_dataset(self) -> str:
         """Esegue la costruzione del dataset."""
         from ..dataset.build_dataset import build_dataset
@@ -182,7 +182,7 @@ class PipelineOrchestrator:
         self.logger.info(f"🏗️  Dataset costruito in: {result_path}")
         return result_path
     
-    @safe_execution(re_raise=True)
+    @safe_execution(reraise=True)
     def _execute_preprocessing(self) -> Dict[str, str]:
         """Esegue il preprocessing dei dati."""
         from ..preprocessing.pipeline import run_preprocessing_pipeline
@@ -204,7 +204,7 @@ class PipelineOrchestrator:
         self.logger.info(f"🔄 Preprocessing completato: {len(result_paths)} file generati")
         return result_paths
     
-    @safe_execution(re_raise=True)
+    @safe_execution(reraise=True)
     def _execute_training(self) -> Dict[str, Any]:
         """Esegue il training dei modelli."""
         from ..training.train import run_training_pipeline
@@ -228,7 +228,7 @@ class PipelineOrchestrator:
         self.logger.info("🎯 Training completato con successo")
         return results
     
-    @safe_execution(re_raise=True)
+    @safe_execution(reraise=True)
     def _execute_evaluation(self) -> Dict[str, Any]:
         """Esegue la valutazione dei modelli."""
         from ..training.evaluation import run_evaluation_pipeline
