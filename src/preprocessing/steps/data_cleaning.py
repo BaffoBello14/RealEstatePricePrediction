@@ -4,7 +4,7 @@ Step 2: Pulizia dati utilizzando il sistema unificato.
 
 import pandas as pd
 from typing import Dict, Any, Tuple
-from ...utils import get_logger
+from ...utils.logger import get_logger
 from ..data_cleaning_core import (
     clean_dataframe_unified,
     remove_constant_columns_unified,

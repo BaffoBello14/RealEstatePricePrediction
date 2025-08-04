@@ -5,7 +5,7 @@ import warnings
 from collections import defaultdict
 from sqlalchemy import inspect
 from sqlalchemy.exc import SAWarning
-from src.db.connect import get_engine
+from ..db.connect import get_engine
 
 # Dizionario per raccogliere tipi personalizzati rilevati dai warning
 unrecognized_types = defaultdict(str)

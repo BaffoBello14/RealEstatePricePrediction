@@ -5,7 +5,8 @@ Sostituisce il pipeline.py monolitico con un approccio modulare e ben definito.
 
 import pandas as pd
 from typing import Dict, Any, List, Optional
-from ..utils import get_logger, save_dataframe, save_json
+from ..utils.logger import get_logger
+from ..utils.io import save_dataframe, save_json
 
 # Import degli step modulari
 from .steps import (

@@ -4,7 +4,8 @@ Step 1: Caricamento e validazione iniziale del dataset.
 
 import pandas as pd
 from typing import Dict, Any, Tuple
-from ...utils import get_logger, load_dataframe
+from ...utils.logger import get_logger
+from ...utils.io import load_dataframe
 
 logger = get_logger(__name__)
 

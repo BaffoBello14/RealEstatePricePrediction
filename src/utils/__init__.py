@@ -33,6 +33,7 @@ from .error_handling import (
 )
 from .pipeline_orchestrator import PipelineOrchestrator
 from .validation import check_target_leakage, validate_category_distribution
+from .import_analyzer import ImportAnalyzer, analyze_imports
 
 __version__ = "2.0.0"
 
@@ -60,5 +61,8 @@ __all__ = [
     'PipelineOrchestrator',
     
     # Validation utilities
-    'check_target_leakage', 'validate_category_distribution'
+    'check_target_leakage', 'validate_category_distribution',
+    
+    # Import analysis
+    'ImportAnalyzer', 'analyze_imports'
 ]

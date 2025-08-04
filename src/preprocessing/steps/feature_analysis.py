@@ -4,7 +4,7 @@ Step 3: Analisi delle feature (correlazioni Cramér's V, etc.).
 
 import pandas as pd
 from typing import Dict, Any, Tuple
-from ...utils import get_logger
+from ...utils.logger import get_logger
 from ..filtering import analyze_cramers_correlations
 
 logger = get_logger(__name__)
