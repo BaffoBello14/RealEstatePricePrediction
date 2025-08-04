@@ -1,54 +1,15 @@
+"""
+Simple logger utility
+"""
 import logging
-from pathlib import Path
-import yaml
 
-def setup_logger(config_path: str = "config/config.yaml") -> logging.Logger:
-    """
-    Setup del logger basato sulla configurazione.
-    
-    Args:
-        config_path: Path al file di configurazione
-        
-    Returns:
-        Logger configurato
-    """
-    # Carica configurazione
-    with open(config_path, 'r', encoding='utf-8') as f:
-        config = yaml.safe_load(f)
-    
-    log_config = config.get('logging', {})
-    
-    # Crea directory logs se non esiste
-    log_file = log_config.get('file', 'logs/ml_pipeline.log')
-    log_dir = Path(log_file).parent
-    log_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Configurazione logging
-    logging.basicConfig(
-        level=getattr(logging, log_config.get('level', 'INFO')),
-        format=log_config.get('format', '%(asctime)s - %(name)s - %(levelname)s - %(message)s'),
-        handlers=[
-            logging.FileHandler(log_file, encoding='utf-8'),
-            logging.StreamHandler()
-        ]
-    )
-    
-    logger = logging.getLogger('ML_Pipeline')
-    logger.info("Logger inizializzato")
-    
+def get_logger(name):
+    """Get a simple logger"""
+    logger = logging.getLogger(name)
+    if not logger.handlers:
+        handler = logging.StreamHandler()
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+        logger.setLevel(logging.INFO)
     return logger
-
-def get_logger(name: str = None) -> logging.Logger:
-    """
-    Ottiene un logger con il nome specificato.
-    
-    Args:
-        name: Nome del logger
-        
-    Returns:
-        Logger
-    """
-    if name is None:
-        name = 'ML_Pipeline'
-    
-    return logging.getLogger(name)
