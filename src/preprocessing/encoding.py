@@ -7,29 +7,7 @@ from .data_cleaning_core import convert_to_numeric_unified
 
 logger = get_logger(__name__)
 
-def auto_convert_to_numeric(df: pd.DataFrame) -> Tuple[pd.DataFrame, List[str]]:
-    """
-    DEPRECATA: Usa convert_to_numeric_unified dal modulo data_cleaning_core.
-    Mantenuta per compatibilità con codice esistente.
-    
-    Args:
-        df: DataFrame da convertire
-        
-    Returns:
-        Tuple con DataFrame convertito e lista colonne convertite
-    """
-    logger.warning("⚠️  auto_convert_to_numeric è DEPRECATA, usa convert_to_numeric_unified")
-    
-    # Usa la funzione unificata con threshold più permissivo (default 0.8 vs quello implicito di questa funzione)
-    df_converted, conversion_info = convert_to_numeric_unified(
-        df=df, 
-        target_column="__NONE__",  # Nessun target da escludere in questo contesto
-        threshold=0.0  # Threshold 0 per convertire qualsiasi colonna che ha anche solo 1 valore convertibile
-    )
-    
-    # Mantieni compatibilità con l'interfaccia originale
-    converted_columns = conversion_info.get('converted_columns', [])
-    return df_converted, converted_columns
+
 
 def advanced_categorical_encoding(
     df: pd.DataFrame, 
@@ -132,7 +110,8 @@ def encode_features(
     logger.info("Avvio encoding delle feature...")
     
     # Conversione automatica a numerico
-    df, converted_cols = auto_convert_to_numeric(df)
+    df, conversion_info = convert_to_numeric_unified(df, target_column, threshold=0.8)
+    converted_cols = conversion_info.get('successful_conversions', [])
     
     # Encoding categoriche avanzato
     df, encoding_info = advanced_categorical_encoding(

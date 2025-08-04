@@ -8,7 +8,8 @@ from typing import Dict, Any
 from ..utils.logger import get_logger
 from ..utils.io import load_dataframe, save_dataframe, save_json
 
-from .cleaning import clean_data, convert_to_numeric, transform_target_and_detect_outliers, detect_outliers_multimethod
+from .cleaning import transform_target_and_detect_outliers, detect_outliers_multimethod
+from .data_cleaning_core import convert_to_numeric_unified, clean_dataframe_unified
 from .filtering import analyze_cramers_correlations
 from .encoding import encode_features
 from .imputation import handle_missing_values
@@ -45,7 +46,14 @@ def run_preprocessing_pipeline(
         
         # ===== STEP 2: PULIZIA DATI =====
         logger.info("Step 2: Pulizia dati...")
-        df, cleaning_info = clean_data(df, target_column, config)
+        df, cleaning_info = clean_dataframe_unified(
+            df=df,
+            target_column=target_column,
+            remove_empty_strings=True,
+            remove_duplicates=True,
+            remove_empty_columns=True,
+            remove_target_nulls=True
+        )
         preprocessing_info['steps_info']['cleaning'] = cleaning_info
         
         # ===== STEP 3: ANALISI CRAMER (se abilitato) =====
@@ -62,7 +70,7 @@ def run_preprocessing_pipeline(
         if steps_config.get('enable_auto_numeric_conversion', True):
             logger.info("Step 4: Conversione automatica a numerico...")
             auto_numeric_threshold = config.get('auto_numeric_threshold', 0.8)
-            df, conversion_info = convert_to_numeric(df, target_column, auto_numeric_threshold)
+            df, conversion_info = convert_to_numeric_unified(df, target_column, auto_numeric_threshold)
             preprocessing_info['steps_info']['numeric_conversion'] = conversion_info
         else:
             logger.info("Step 4: Conversione automatica a numerico DISABILITATA")

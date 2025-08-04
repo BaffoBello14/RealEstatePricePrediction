@@ -289,11 +289,15 @@ class TestPipelineRobustness:
             'AI_Prezzo_Ridistribuito': [100000, 150000, 200000, 120000, 180000]
         })
         
-        from src.preprocessing.cleaning import clean_data
+        from src.preprocessing.data_cleaning_core import clean_dataframe_unified
         from src.preprocessing.imputation import handle_missing_values
         
         # Dovrebbe gestire i dati mancanti senza crashare
-        df_cleaned, cleaning_info = clean_data(df_with_missing, 'AI_Prezzo_Ridistribuito', sample_config['preprocessing'])
+        df_cleaned, cleaning_info = clean_dataframe_unified(
+            df_with_missing, 'AI_Prezzo_Ridistribuito',
+            remove_empty_strings=True, remove_duplicates=True,
+            remove_empty_columns=True, remove_target_nulls=True
+        )
         df_imputed, imputation_info = handle_missing_values(df_cleaned, 'AI_Prezzo_Ridistribuito')
         
         # Verifica che non ci siano più valori mancanti nel target
@@ -372,10 +376,14 @@ class TestPipelineRobustness:
             'AI_Prezzo_Ridistribuito': np.random.lognormal(11, 0.5, 10000)
         })
         
-        from src.preprocessing.cleaning import clean_data
+        from src.preprocessing.data_cleaning_core import clean_dataframe_unified
         
         # Dovrebbe processare senza usare memoria eccessiva
-        df_cleaned, info = clean_data(large_df, 'AI_Prezzo_Ridistribuito', sample_config['preprocessing'])
+        df_cleaned, info = clean_dataframe_unified(
+            large_df, 'AI_Prezzo_Ridistribuito',
+            remove_empty_strings=True, remove_duplicates=True,
+            remove_empty_columns=True, remove_target_nulls=True
+        )
         
         memory_after = process.memory_info().rss
         memory_increase = memory_after - memory_before
