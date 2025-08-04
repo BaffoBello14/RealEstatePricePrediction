@@ -160,6 +160,7 @@ models:
     catboost: true
     lightgbm: true
     hist_gradient_boosting: true
+    # tabm: false  # Temporarily disabled due to k parameter issues
   
   # Ensemble models
   ensemble:

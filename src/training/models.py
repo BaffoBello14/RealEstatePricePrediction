@@ -241,7 +241,8 @@ def objective_tabm(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=
         'n_jobs': n_jobs,
         'verbosity': 0,
         'n_num_features': n_num_features,
-        'cat_cardinalities': cat_cardinalities
+        'cat_cardinalities': cat_cardinalities,
+        'k': trial.suggest_int('k', 1, min(10, max(1, n_num_features // 4)))  # Add required k parameter
     }
     
     model = TabM(**params)

@@ -45,9 +45,16 @@ def split_dataset_with_validation(
     target_orig_column = target_column.replace('_log', '_original')
     if target_orig_column in df.columns:
         y_orig = df[target_orig_column]
+        logger.info(f"Usando target originale disponibile: {target_orig_column}")
     else:
-        # Se non disponibile, calcola dalla scala log - FIXED: uso expm1 per invertire log1p
-        y_orig = np.expm1(y)
+        # FIXED: Solo applica expm1 se il target column contiene "_log" nel nome
+        # Questo indica che è stata effettivamente applicata una trasformazione log
+        if '_log' in target_column:
+            logger.info(f"Target column contiene '_log', applicando expm1 per invertire log1p")
+            y_orig = np.expm1(y)
+        else:
+            logger.info(f"Target column non contiene '_log', usando valori originali")
+            y_orig = y.copy()
     
     # Verifica disponibilità colonne temporali
     has_year_month = year_column in df.columns and month_column in df.columns
@@ -59,7 +66,15 @@ def split_dataset_with_validation(
         df_sorted = temporal_sort_by_year_month(df, year_column, month_column)
         X_sorted = df_sorted.drop(columns=[target_column])
         y_sorted = df_sorted[target_column]
-        y_orig_sorted = df_sorted[target_orig_column] if target_orig_column in df_sorted.columns else np.expm1(y_sorted)
+        
+        # FIXED: Stessa logica per y_orig_sorted
+        if target_orig_column in df_sorted.columns:
+            y_orig_sorted = df_sorted[target_orig_column]
+        else:
+            if '_log' in target_column:
+                y_orig_sorted = np.expm1(y_sorted)
+            else:
+                y_orig_sorted = y_sorted.copy()
         
         # Calcola gli indici di split temporale
         n_samples = len(df_sorted)
@@ -103,8 +118,27 @@ def split_dataset_with_validation(
         )
     
     logger.info(f"Train set: {X_train.shape[0]} righe, {X_train.shape[1]} colonne")
-    logger.info(f"Validation set: {X_val.shape[0]} righe, {X_val.shape[1]} colonne") 
+    logger.info(f"Validation set: {X_val.shape[0]} righe, {X_val.shape[1]} colonne")
     logger.info(f"Test set: {X_test.shape[0]} righe, {X_test.shape[1]} colonne")
+    
+    # ADDED: Logging dettagliato per diagnostica data scale issues
+    logger.info("=== STATISTICHE TARGET DOPO SPLIT ===")
+    logger.info(f"y_train - mean: {y_train.mean():.2e}, std: {y_train.std():.2e}, range: [{y_train.min():.2e}, {y_train.max():.2e}]")
+    logger.info(f"y_val - mean: {y_val.mean():.2e}, std: {y_val.std():.2e}, range: [{y_val.min():.2e}, {y_val.max():.2e}]")
+    logger.info(f"y_test - mean: {y_test.mean():.2e}, std: {y_test.std():.2e}, range: [{y_test.min():.2e}, {y_test.max():.2e}]")
+    
+    logger.info("=== STATISTICHE TARGET ORIGINALE DOPO SPLIT ===")
+    logger.info(f"y_train_orig - mean: {y_train_orig.mean():.2e}, std: {y_train_orig.std():.2e}, range: [{y_train_orig.min():.2e}, {y_train_orig.max():.2e}]")
+    logger.info(f"y_val_orig - mean: {y_val_orig.mean():.2e}, std: {y_val_orig.std():.2e}, range: [{y_val_orig.min():.2e}, {y_val_orig.max():.2e}]")
+    logger.info(f"y_test_orig - mean: {y_test_orig.mean():.2e}, std: {y_test_orig.std():.2e}, range: [{y_test_orig.min():.2e}, {y_test_orig.max():.2e}]")
+    
+    # Verifica coerenza tra target e target_orig
+    if not np.allclose(y_train, y_train_orig, rtol=1e-5):
+        logger.warning("⚠️ DISCREPANZA RILEVATA tra y_train e y_train_orig")
+    if not np.allclose(y_val, y_val_orig, rtol=1e-5):
+        logger.warning("⚠️ DISCREPANZA RILEVATA tra y_val e y_val_orig") 
+    if not np.allclose(y_test, y_test_orig, rtol=1e-5):
+        logger.warning("⚠️ DISCREPANZA RILEVATA tra y_test e y_test_orig")
     
     # Log delle statistiche sui target ORIGINALI (prima della trasformazione log)
     logger.info(f"Target originale - Train: μ={y_train.mean():.3f}, σ={y_train.std():.3f}")
