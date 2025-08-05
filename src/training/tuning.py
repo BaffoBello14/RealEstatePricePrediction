@@ -6,7 +6,7 @@ import optuna
 import optunahub
 from datetime import datetime
 from typing import Dict, Any
-from optuna.pruners import MedianPruner
+# Pruner imports sono ora condizionali nel codice
 from sklearn.model_selection import KFold, TimeSeriesSplit
 from ..utils.logger import get_logger
 from .models import (
@@ -89,11 +89,26 @@ def optimize_model(model_name: str, X_train, y_train, config: Dict[str, Any]) ->
     
     try:
         # Configurazione pruner
-        pruner = MedianPruner(
-            n_startup_trials=5,
-            n_warmup_steps=10,
-            interval_steps=5
-        )
+        pruning_percentile = config.get('optuna_pruning_percentile', 50.0)
+        if pruning_percentile == 50.0:
+            # Usa MedianPruner per backward compatibility se percentile è 50
+            from optuna.pruners import MedianPruner
+            pruner = MedianPruner(
+                n_startup_trials=5,
+                n_warmup_steps=10,
+                interval_steps=5
+            )
+        else:
+            # Usa PercentilePruner per percentili diversi
+            from optuna.pruners import PercentilePruner
+            pruner = PercentilePruner(
+                percentile=pruning_percentile,
+                n_startup_trials=5,
+                n_warmup_steps=10,
+                interval_steps=5
+            )
+        
+        logger.info(f"Usando pruner con percentile: {pruning_percentile}")
         
         # Prova a utilizzare AutoSampler, se fallisce usa TPESampler
         try:

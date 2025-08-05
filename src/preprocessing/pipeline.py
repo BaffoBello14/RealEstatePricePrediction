@@ -8,7 +8,7 @@ from typing import Dict, Any
 from ..utils.logger import get_logger
 from ..utils.io import load_dataframe, save_dataframe, save_json
 
-from .cleaning import clean_data, convert_to_numeric, detect_outliers_multimethod
+from .cleaning import clean_data, convert_to_numeric, detect_outliers_multimethod, transform_target_and_detect_outliers_by_category
 from .filtering import analyze_cramers_correlations
 from .encoding import encode_features
 from .imputation import handle_missing_values
@@ -160,7 +160,9 @@ def run_preprocessing_pipeline(
             random_state=config.get('random_state', 42),
             use_temporal_split=config.get('use_temporal_split', True),
             year_column=config.get('year_column', 'A_AnnoStipula'),
-            month_column=config.get('month_column', 'A_MeseStipula')
+            month_column=config.get('month_column', 'A_MeseStipula'),
+            use_stratified_split=config.get('use_stratified_split', False),
+            stratification_quantiles=config.get('stratification_quantiles', 5)
         )
         
         # ===== SPLIT ANCHE PER DATI CATEGORICI =====
@@ -173,7 +175,9 @@ def run_preprocessing_pipeline(
             random_state=config.get('random_state', 42),
             use_temporal_split=config.get('use_temporal_split', True),
             year_column=config.get('year_column', 'A_AnnoStipula'),
-            month_column=config.get('month_column', 'A_MeseStipula')
+            month_column=config.get('month_column', 'A_MeseStipula'),
+            use_stratified_split=config.get('use_stratified_split', False),
+            stratification_quantiles=config.get('stratification_quantiles', 5)
         )
         logger.info(f"Split categorico completato: X_train_cat {X_train_cat.shape}, X_val_cat {X_val_cat.shape}, X_test_cat {X_test_cat.shape}")
         
@@ -181,7 +185,9 @@ def run_preprocessing_pipeline(
             'train_shape': list(X_train.shape),
             'val_shape': list(X_val.shape),
             'test_shape': list(X_test.shape),
-            'use_temporal_split': config.get('use_temporal_split', True)
+            'use_temporal_split': config.get('use_temporal_split', True),
+            'use_stratified_split': config.get('use_stratified_split', False),
+            'stratification_quantiles': config.get('stratification_quantiles', 5)
         }
         preprocessing_info['steps_info']['split'] = split_info
         
@@ -261,14 +267,53 @@ def run_preprocessing_pipeline(
         
         if enable_outliers:
             logger.info("Step 12: Rilevazione outlier...")
-            outliers_mask, outlier_info = detect_outliers_multimethod(
-                y_train_processed,
-                X_train_scaled,
-                z_threshold=config.get('z_threshold', 3.0),
-                iqr_multiplier=config.get('iqr_multiplier', 1.5),
-                contamination=config.get('isolation_contamination', 0.1),
-                min_methods=config.get('min_methods_outlier', 2)
-            )
+            
+            # Strategia outlier detection dal config
+            outlier_strategy = config.get('outlier_strategy', 'global')
+            
+            if outlier_strategy == 'category_stratified':
+                # Usa detection stratificata per categoria
+                category_column = config.get('category_column', 'AI_IdCategoriaCatastale')
+                alternative_category_column = config.get('alternative_category_column', 'CC_Id')
+                
+                                 # Controlla se la colonna principale esiste, altrimenti usa fallback
+                 if category_column not in X_train.columns and alternative_category_column in X_train.columns:
+                     logger.info(f"Colonna {category_column} non trovata, usando {alternative_category_column}")
+                     category_column = alternative_category_column
+                 
+                 if category_column in X_train.columns:
+                     logger.info(f"Usando outlier detection stratificata per categoria: {category_column}")
+                     y_train_processed, outliers_mask, outlier_info = transform_target_and_detect_outliers_by_category(
+                         y_train_processed,
+                         X_train,  # Usa dati pre-scaling per categoria
+                        category_column=category_column,
+                        z_threshold=config.get('z_threshold', 2.5),
+                        iqr_multiplier=config.get('iqr_multiplier', 1.5),
+                        contamination=config.get('isolation_contamination', 0.05),
+                        min_methods=config.get('min_methods_outlier', 2),
+                        min_samples_per_category=config.get('min_samples_per_category', 30)
+                    )
+                else:
+                    logger.warning(f"Nessuna colonna categoria trovata ({category_column}, {alternative_category_column}). Fallback a detection globale.")
+                    outliers_mask, outlier_info = detect_outliers_multimethod(
+                        y_train_processed,
+                        X_train_scaled,
+                        z_threshold=config.get('global_z_threshold', 3.0),
+                        iqr_multiplier=config.get('global_iqr_multiplier', 1.5),
+                        contamination=config.get('global_isolation_contamination', 0.1),
+                        min_methods=config.get('min_methods_outlier', 2)
+                    )
+            else:
+                # Usa detection globale standard
+                logger.info("Usando outlier detection globale")
+                outliers_mask, outlier_info = detect_outliers_multimethod(
+                    y_train_processed,
+                    X_train_scaled,
+                    z_threshold=config.get('z_threshold', 3.0),
+                    iqr_multiplier=config.get('iqr_multiplier', 1.5),
+                    contamination=config.get('isolation_contamination', 0.1),
+                    min_methods=config.get('min_methods_outlier', 2)
+                )
             
             # Rimozione outliers dal training set
             outliers_count = outliers_mask.sum()

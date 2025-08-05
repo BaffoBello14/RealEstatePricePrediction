@@ -17,7 +17,9 @@ def split_dataset_with_validation(
     random_state: int = 42,
     use_temporal_split: bool = True,
     year_column: str = 'A_AnnoStipula',
-    month_column: str = 'A_MeseStipula'
+    month_column: str = 'A_MeseStipula',
+    use_stratified_split: bool = False,
+    stratification_quantiles: int = 5
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.Series, pd.Series, pd.Series, pd.Series, pd.Series, pd.Series]:
     """
     Divide il dataset in train, validation e test.
@@ -31,6 +33,8 @@ def split_dataset_with_validation(
         use_temporal_split: Se True usa split temporale, altrimenti casuale
         year_column: Nome della colonna anno per split temporale
         month_column: Nome della colonna mese per split temporale
+        use_stratified_split: Se True usa stratificazione per target continuo (incompatibile con temporal split)
+        stratification_quantiles: Numero di quantili per stratificazione target continuo
         
     Returns:
         Tuple con X_train, X_val, X_test, y_train, y_val, y_test, y_train_orig, y_val_orig, y_test_orig
@@ -104,18 +108,44 @@ def split_dataset_with_validation(
         if use_temporal_split:
             logger.warning(f"Colonne temporali '{year_column}' e '{month_column}' non trovate. Fallback a split casuale.")
         
-        logger.info("Usando split casuale")
-        
-        # Prima divisione: train+val vs test
-        X_temp, X_test, y_temp, y_test, y_temp_orig, y_test_orig = train_test_split(
-            X, y, y_orig, test_size=test_size, random_state=random_state, stratify=None
-        )
-        
-        # Seconda divisione: train vs val
-        val_size_adjusted = val_size / (1 - test_size)  # Aggiusta la proporzione
-        X_train, X_val, y_train, y_val, y_train_orig, y_val_orig = train_test_split(
-            X_temp, y_temp, y_temp_orig, test_size=val_size_adjusted, random_state=random_state, stratify=None
-        )
+        if use_stratified_split and not use_temporal_split:
+            logger.info(f"Usando split casuale stratificato con {stratification_quantiles} quantili")
+            
+            # Crea stratificazione basata su quantili del target
+            y_quantiles = pd.qcut(y, q=stratification_quantiles, labels=False, duplicates='drop')
+            
+            # Prima divisione: train+val vs test
+            X_temp, X_test, y_temp, y_test, y_temp_orig, y_test_orig, y_quantiles_temp, y_quantiles_test = train_test_split(
+                X, y, y_orig, y_quantiles, test_size=test_size, random_state=random_state, stratify=y_quantiles
+            )
+            
+            # Seconda divisione: train vs val
+            val_size_adjusted = val_size / (1 - test_size)  # Aggiusta la proporzione
+            X_train, X_val, y_train, y_val, y_train_orig, y_val_orig = train_test_split(
+                X_temp, y_temp, y_temp_orig, test_size=val_size_adjusted, random_state=random_state, stratify=y_quantiles_temp
+            )
+            
+            logger.info(f"Distribuzione quantili:")
+            logger.info(f"  Train: {y_train.groupby(pd.qcut(y_train, q=stratification_quantiles, labels=False, duplicates='drop')).size().to_dict()}")
+            logger.info(f"  Val: {y_val.groupby(pd.qcut(y_val, q=stratification_quantiles, labels=False, duplicates='drop')).size().to_dict()}")
+            logger.info(f"  Test: {y_test.groupby(pd.qcut(y_test, q=stratification_quantiles, labels=False, duplicates='drop')).size().to_dict()}")
+            
+        else:
+            if use_stratified_split and use_temporal_split:
+                logger.warning("Stratified split incompatibile con temporal split. Usando split temporale.")
+            
+            logger.info("Usando split casuale semplice")
+            
+            # Prima divisione: train+val vs test
+            X_temp, X_test, y_temp, y_test, y_temp_orig, y_test_orig = train_test_split(
+                X, y, y_orig, test_size=test_size, random_state=random_state, stratify=None
+            )
+            
+            # Seconda divisione: train vs val
+            val_size_adjusted = val_size / (1 - test_size)  # Aggiusta la proporzione
+            X_train, X_val, y_train, y_val, y_train_orig, y_val_orig = train_test_split(
+                X_temp, y_temp, y_temp_orig, test_size=val_size_adjusted, random_state=random_state, stratify=None
+            )
     
     logger.info(f"Train set: {X_train.shape[0]} righe, {X_train.shape[1]} colonne")
     logger.info(f"Validation set: {X_val.shape[0]} righe, {X_val.shape[1]} colonne")
