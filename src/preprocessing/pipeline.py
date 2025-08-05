@@ -154,10 +154,21 @@ def run_preprocessing_pipeline(
             logger.info("Step 10: Feature scaling...")
             scaling_results = apply_feature_scaling(X_train, X_val, X_test)
             
+            # Il return di apply_feature_scaling è: (X_train_scaled, [X_val_scaled], [X_test_scaled], scaling_info)
+            # dove X_val_scaled e X_test_scaled sono presenti solo se i dati sono stati forniti
             X_train_scaled = scaling_results[0]
-            X_val_scaled = scaling_results[1] if len(scaling_results) > 2 else None
-            X_test_scaled = scaling_results[2] if len(scaling_results) > 3 else scaling_results[1]
-            scaling_info = scaling_results[-1]
+            scaling_info = scaling_results[-1]  # L'ultimo elemento è sempre scaling_info
+            
+            # Gestisci X_val e X_test in base a cosa è stato restituito
+            if len(scaling_results) == 4:  # X_train, X_val, X_test, info
+                X_val_scaled = scaling_results[1]
+                X_test_scaled = scaling_results[2]
+            elif len(scaling_results) == 3:  # X_train, X_val, info (senza X_test)
+                X_val_scaled = scaling_results[1]
+                X_test_scaled = None
+            else:  # len == 2: X_train, info (senza X_val e X_test)
+                X_val_scaled = None
+                X_test_scaled = None
             
             preprocessing_info['steps_info']['scaling'] = {
                 'original_features': scaling_info['original_features'],
@@ -287,10 +298,20 @@ def run_preprocessing_pipeline(
                 random_state=config.get('random_state', 42)
             )
             
+            # Il return di apply_pca_transformation ha struttura simile al feature scaling
             X_train_final = pca_results[0]
-            X_val_final = pca_results[1] if len(pca_results) > 2 else None
-            X_test_final = pca_results[2] if len(pca_results) > 3 else pca_results[1]
-            pca_info = pca_results[-1]
+            pca_info = pca_results[-1]  # L'ultimo elemento è sempre pca_info
+            
+            # Gestisci X_val e X_test in base a cosa è stato restituito
+            if len(pca_results) == 4:  # X_train, X_val, X_test, info
+                X_val_final = pca_results[1]
+                X_test_final = pca_results[2]
+            elif len(pca_results) == 3:  # X_train, X_val, info (senza X_test)
+                X_val_final = pca_results[1]
+                X_test_final = None
+            else:  # len == 2: X_train, info (senza X_val e X_test)
+                X_val_final = None
+                X_test_final = None
             
             preprocessing_info['steps_info']['pca'] = {
                 'original_features': pca_info['original_features'],
@@ -313,9 +334,9 @@ def run_preprocessing_pipeline(
         # Converte a DataFrame se necessario
         if not isinstance(X_train_final, pd.DataFrame):
             X_train_final = pd.DataFrame(X_train_final, columns=feature_columns)
-        if not isinstance(X_val_final, pd.DataFrame):
+        if X_val_final is not None and not isinstance(X_val_final, pd.DataFrame):
             X_val_final = pd.DataFrame(X_val_final, columns=feature_columns)
-        if not isinstance(X_test_final, pd.DataFrame):
+        if X_test_final is not None and not isinstance(X_test_final, pd.DataFrame):
             X_test_final = pd.DataFrame(X_test_final, columns=feature_columns)
         
         # Prepara target per salvataggio
@@ -329,29 +350,40 @@ def run_preprocessing_pipeline(
         y_val_orig_df = pd.DataFrame({'target_original': y_val_orig})
         y_test_orig_df = pd.DataFrame({'target_original': y_test_orig})
         
-        # Salva i file
-        save_dataframe(X_train_final, output_paths['train_features'])
-        save_dataframe(X_val_final, output_paths['val_features'])
-        save_dataframe(X_test_final, output_paths['test_features'])
-        save_dataframe(y_train_df, output_paths['train_target'])
-        save_dataframe(y_val_df, output_paths['val_target'])
-        save_dataframe(y_test_df, output_paths['test_target'])
-        save_dataframe(y_val_orig_df, output_paths['val_target_orig'])
-        save_dataframe(y_test_orig_df, output_paths['test_target_orig'])
+        # Salva i file usando batch saving
+        dataframes_to_save = {
+            'train_features': X_train_final,
+            'val_features': X_val_final,
+            'test_features': X_test_final,
+            'train_target': y_train_df,
+            'val_target': y_val_df,
+            'test_target': y_test_df,
+            'val_target_orig': y_val_orig_df,
+            'test_target_orig': y_test_orig_df
+        }
+        
+        from ..utils.pipeline_utils import DataLoader
+        DataLoader.save_multiple_dataframes(dataframes_to_save, output_paths)
         
         # Completa informazioni preprocessing
         preprocessing_info.update({
             'target_column': target_column,
             'final_train_shape': [X_train_final.shape[0], X_train_final.shape[1]],
-            'final_val_shape': list(X_val_final.shape),
-            'final_test_shape': list(X_test_final.shape),
+            'final_val_shape': list(X_val_final.shape) if X_val_final is not None else None,
+            'final_test_shape': list(X_test_final.shape) if X_test_final is not None else None,
             'feature_columns': feature_columns
         })
         
         save_json(preprocessing_info, output_paths['preprocessing_info'])
         
         logger.info("=== PREPROCESSING COMPLETATO CON SUCCESSO ===")
-        logger.info(f"Dataset finale: {X_train_final.shape[0]} train + {X_val_final.shape[0]} val + {X_test_final.shape[0]} test")
+        
+        # Prepara statistiche per il log
+        train_size = X_train_final.shape[0]
+        val_size = X_val_final.shape[0] if X_val_final is not None else 0
+        test_size = X_test_final.shape[0] if X_test_final is not None else 0
+        
+        logger.info(f"Dataset finale: {train_size} train + {val_size} val + {test_size} test")
         logger.info(f"Features finali: {X_train_final.shape[1]}")
         
         # Mostra summary degli step eseguiti
