@@ -8,7 +8,7 @@ from typing import Dict, Any
 from ..utils.logger import get_logger
 from ..utils.io import load_dataframe, save_dataframe, save_json
 
-from .cleaning import clean_data, convert_to_numeric, transform_target_and_detect_outliers, detect_outliers_multimethod
+from .cleaning import clean_data, convert_to_numeric, detect_outliers_multimethod
 from .filtering import analyze_cramers_correlations
 from .encoding import encode_features
 from .imputation import handle_missing_values
@@ -179,63 +179,45 @@ def run_preprocessing_pipeline(
             X_train_scaled, X_val_scaled, X_test_scaled = X_train, X_val, X_test
             preprocessing_info['steps_info']['scaling'] = {'skipped': True}
         
-        # ===== STEP 11: TRASFORMAZIONE LOG + OUTLIER DETECTION (se abilitato) =====
+        # ===== STEP 11: TRASFORMAZIONE LOGARITMICA (se abilitata) =====
         enable_log = steps_config.get('enable_log_transformation', True)
-        enable_outliers = steps_config.get('enable_outlier_detection', True)
-        use_separate_functions = steps_config.get('use_separate_log_outlier_functions', False)
         
-        if enable_log or enable_outliers:
-            # Forza l'uso di funzioni separate se la trasformazione log è disabilitata
-            # per evitare che la funzione combinata applichi sempre la trasformazione log
-            force_separate = not enable_log and enable_outliers
-            if use_separate_functions or force_separate:
-                # Usa funzioni separate per maggiore flessibilità
-                logger.info("Step 11: Usando funzioni separate per trasformazione log e outlier detection...")
-                
-                if enable_log:
-                    logger.info("Step 11a: Trasformazione logaritmica target...")
-                    y_train_log, transform_info = transform_target_log(y_train)
-                    preprocessing_info['steps_info']['log_transformation'] = transform_info
-                else:
-                    y_train_log = y_train
-                    preprocessing_info['steps_info']['log_transformation'] = {
-                        'skipped': True,
-                        'applied': False,
-                        'target_files_contain_log_values': False
-                    }
-                
-                if enable_outliers:
-                    logger.info("Step 11b: Outlier detection...")
-                    outliers_mask, outlier_info = detect_outliers_multimethod(
-                        y_train_log,
-                        X_train_scaled,
-                        z_threshold=config.get('z_threshold', 3.0),
-                        iqr_multiplier=config.get('iqr_multiplier', 1.5),
-                        contamination=config.get('isolation_contamination', 0.1),
-                        min_methods=config.get('min_methods_outlier', 2)
-                    )
-                    preprocessing_info['steps_info']['outlier_detection'] = outlier_info
-                else:
-                    outliers_mask = np.zeros(len(y_train_log), dtype=bool)
-                    preprocessing_info['steps_info']['outlier_detection'] = {'skipped': True}
-                
-                # Combina info per compatibilità
-                outlier_detector = {
-                    'method': 'separate_functions',
-                    'transform_info': preprocessing_info['steps_info'].get('log_transformation', {}),
-                    'outlier_info': preprocessing_info['steps_info'].get('outlier_detection', {})
-                }
-            else:
-                # Usa funzione combinata (comportamento originale)
-                logger.info("Step 11: Trasformazione log target + outlier detection (funzione combinata)...")
-                y_train_log, outliers_mask, outlier_detector = transform_target_and_detect_outliers(
-                    y_train,
-                    X_train_scaled,
-                    z_threshold=config.get('z_threshold', 3.0),
-                    iqr_multiplier=config.get('iqr_multiplier', 1.5),
-                    contamination=config.get('isolation_contamination', 0.1),
-                    min_methods=config.get('min_methods_outlier', 2)
-                )
+        if enable_log:
+            logger.info("Step 11: Trasformazione logaritmica target...")
+            y_train_processed, transform_info = transform_target_log(y_train)
+            target_is_log_transformed = True
+            preprocessing_info['steps_info']['log_transformation'] = transform_info
+            
+            # Applica la stessa trasformazione ai dati di validation e test
+            y_val_processed = np.log1p(y_val)
+            y_test_processed = np.log1p(y_test)
+            
+            logger.info("Trasformazione logaritmica applicata a train, validation e test set")
+        else:
+            logger.info("Step 11: Trasformazione logaritmica DISABILITATA")
+            y_train_processed = y_train
+            y_val_processed = y_val
+            y_test_processed = y_test
+            target_is_log_transformed = False
+            preprocessing_info['steps_info']['log_transformation'] = {
+                'skipped': True,
+                'applied': False,
+                'target_files_contain_log_values': False
+            }
+        
+        # ===== STEP 12: RILEVAZIONE OUTLIER (se abilitata) =====
+        enable_outliers = steps_config.get('enable_outlier_detection', True)
+        
+        if enable_outliers:
+            logger.info("Step 12: Rilevazione outlier...")
+            outliers_mask, outlier_info = detect_outliers_multimethod(
+                y_train_processed,
+                X_train_scaled,
+                z_threshold=config.get('z_threshold', 3.0),
+                iqr_multiplier=config.get('iqr_multiplier', 1.5),
+                contamination=config.get('isolation_contamination', 0.1),
+                min_methods=config.get('min_methods_outlier', 2)
+            )
             
             # Rimozione outliers dal training set
             outliers_count = outliers_mask.sum()
@@ -243,53 +225,19 @@ def run_preprocessing_pipeline(
                        f"({outliers_count/len(y_train)*100:.2f}%)")
             
             X_train_clean = X_train_scaled[~outliers_mask]
-            y_train_clean = y_train_log[~outliers_mask]
+            y_train_clean = y_train_processed[~outliers_mask]
             
-            # Applica la stessa trasformazione logaritmica a validation e test
-            y_val_log = np.log1p(y_val)
-            y_test_log = np.log1p(y_test)
-            
-            outlier_info = {
-                'outliers_removed': int(outliers_count),
-                'outliers_percentage': float(outliers_count/len(y_train)*100),
-                'final_train_size': X_train_clean.shape[0]
-            }
             preprocessing_info['steps_info']['outlier_detection'] = outlier_info
-            
-        elif steps_config.get('enable_log_transformation', True):
-            logger.info("Step 11: Solo trasformazione log target (outlier detection disabilitata)...")
-            y_train_log = np.log1p(y_train)
-            y_val_log = np.log1p(y_val)
-            y_test_log = np.log1p(y_test)
-            X_train_clean = X_train_scaled
-            y_train_clean = y_train_log
-            preprocessing_info['steps_info']['outlier_detection'] = {'outliers_removed': 0, 'log_transform_only': True}
-            preprocessing_info['steps_info']['log_transformation'] = {
-                'applied': True, 
-                'method': 'log1p', 
-                'log_transform_only': True,
-                'target_files_contain_log_values': True
-            }
         else:
-            logger.info("Step 11: Trasformazione log e outlier detection DISABILITATE")
-            # Nota: nonostante il nome "_log", questi contengono i valori originali
-            # quando la trasformazione logaritmica è disabilitata
-            y_train_log = y_train
-            y_val_log = y_val
-            y_test_log = y_test
+            logger.info("Step 12: Rilevazione outlier DISABILITATA")
+            # Nessun outlier rimosso
             X_train_clean = X_train_scaled
-            y_train_clean = y_train_log
+            y_train_clean = y_train_processed
             preprocessing_info['steps_info']['outlier_detection'] = {'skipped': True}
-            preprocessing_info['steps_info']['log_transformation'] = {
-                'skipped': True,
-                'applied': False,
-                'target_files_contain_log_values': False,
-                'note': 'Files named *_log contain original scale values when log transformation is disabled'
-            }
         
-        # ===== STEP 12: PCA (se abilitato) =====
+        # ===== STEP 13: PCA (se abilitato) =====
         if steps_config.get('enable_pca', False):
-            logger.info("Step 12: Applicazione PCA...")
+            logger.info("Step 13: Applicazione PCA...")
             pca_results = apply_pca_transformation(
                 X_train_clean,
                 X_val_scaled,
@@ -321,15 +269,15 @@ def run_preprocessing_pipeline(
             
             feature_columns = pca_info['component_names']
         else:
-            logger.info("Step 12: PCA DISABILITATA")
+            logger.info("Step 13: PCA DISABILITATA")
             X_train_final = X_train_clean
             X_val_final = X_val_scaled
             X_test_final = X_test_scaled
             preprocessing_info['steps_info']['pca'] = {'skipped': True}
             feature_columns = X_train_clean.columns.tolist()
         
-        # ===== STEP 13: SALVATAGGIO RISULTATI =====
-        logger.info("Step 13: Salvataggio risultati...")
+        # ===== STEP 14: SALVATAGGIO RISULTATI =====
+        logger.info("Step 14: Salvataggio risultati...")
         
         # Converte a DataFrame se necessario
         if not isinstance(X_train_final, pd.DataFrame):
@@ -339,12 +287,17 @@ def run_preprocessing_pipeline(
         if X_test_final is not None and not isinstance(X_test_final, pd.DataFrame):
             X_test_final = pd.DataFrame(X_test_final, columns=feature_columns)
         
-        # Prepara target per salvataggio
-        # Nota: il nome 'target_log' è mantenuto per compatibilità, ma potrebbe contenere
-        # valori originali se enable_log_transformation=false
-        y_train_df = pd.DataFrame({'target_log': y_train_clean})
-        y_val_df = pd.DataFrame({'target_log': y_val_log})
-        y_test_df = pd.DataFrame({'target_log': y_test_log})
+        # Prepara target per salvataggio con nomi appropriati
+        if target_is_log_transformed:
+            target_column_name = 'target_log'
+            logger.info("Salvando target con trasformazione logaritmica applicata")
+        else:
+            target_column_name = 'target_original'
+            logger.info("Salvando target senza trasformazione logaritmica (valori originali)")
+        
+        y_train_df = pd.DataFrame({target_column_name: y_train_clean})
+        y_val_df = pd.DataFrame({target_column_name: y_val_processed})
+        y_test_df = pd.DataFrame({target_column_name: y_test_processed})
         
         # Target in scala originale per evaluation
         y_val_orig_df = pd.DataFrame({'target_original': y_val_orig})

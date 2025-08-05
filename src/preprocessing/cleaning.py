@@ -265,11 +265,11 @@ def transform_target_and_detect_outliers(
     logger.info("Trasformazione target e outlier detection (usando funzioni separate)...")
     
     # Step 1: Trasformazione logaritmica del target
-    y_train_log, transform_info = transform_target_log(y_train)
+    y_train_transformed, transform_info = transform_target_log(y_train)
     
     # Step 2: Outlier detection
     outliers_mask, outlier_info = detect_outliers_multimethod(
-        y_train_log, X_train, z_threshold, iqr_multiplier, contamination, min_methods
+        y_train_transformed, X_train, z_threshold, iqr_multiplier, contamination, min_methods
     )
     
     # Combina le informazioni per compatibilità con l'API esistente
@@ -288,7 +288,7 @@ def transform_target_and_detect_outliers(
         }
     }
     
-    return y_train_log, outliers_mask, detector_info
+    return y_train_transformed, outliers_mask, detector_info
 
 def detect_outliers_multimethod(
     y_target: pd.Series,
