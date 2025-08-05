@@ -62,8 +62,10 @@ def get_logger(name: Optional[str] = None) -> logging.Logger:
         
     logger = logging.getLogger(name)
     
-    # Only add handlers if not already configured
-    if not logger.handlers and not logging.getLogger().handlers:
+    # Only add handlers if not already configured and no root logger handlers exist
+    # This prevents duplicate logging when setup_logger has already been called
+    root_logger = logging.getLogger()
+    if not logger.handlers and not root_logger.handlers:
         handler = logging.StreamHandler()
         formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         handler.setFormatter(formatter)
