@@ -15,13 +15,146 @@ from sklearn.tree import DecisionTreeRegressor
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.svm import SVR
 from sklearn.model_selection import cross_val_score, KFold
+from sklearn.preprocessing import LabelEncoder
 import xgboost as xgb
 import catboost as cb
 import lightgbm as lgb
 from tabm import TabM
 from ..utils.logger import get_logger
+import pandas as pd
+import numpy as np
 
 logger = get_logger(__name__)
+
+class TabMWrapper:
+    """
+    Wrapper per TabM che gestisce automaticamente il preprocessing delle feature categoriche.
+    TabM non supporta nativamente le feature categoriche, quindi le converte automaticamente.
+    """
+    
+    def __init__(self, **params):
+        """
+        Inizializza TabM wrapper.
+        
+        Args:
+            **params: Parametri per TabM
+        """
+        self.params = params
+        self.model = None
+        self.label_encoders = {}
+        self.categorical_columns = []
+        self.is_fitted = False
+        
+    def _preprocess_data(self, X, fit_encoders=False):
+        """
+        Preprocessa i dati convertendo le feature categoriche in numeriche.
+        
+        Args:
+            X: Dataset da preprocessare
+            fit_encoders: Se True, fit degli encoder (fase di training)
+            
+        Returns:
+            Dataset preprocessato
+        """
+        if not hasattr(X, 'dtypes'):
+            return X
+            
+        X_processed = X.copy()
+        categorical_columns = list(X.select_dtypes(include=['object', 'category']).columns)
+        
+        if fit_encoders:
+            self.categorical_columns = categorical_columns
+            self.label_encoders = {}
+            
+            for col in categorical_columns:
+                le = LabelEncoder()
+                X_processed[col] = le.fit_transform(X_processed[col].astype(str))
+                self.label_encoders[col] = le
+                
+            if categorical_columns:
+                logger.info(f"TabM: Fitted label encoders per {len(categorical_columns)} feature categoriche")
+        else:
+            # Usa encoder già fittati
+            for col in self.categorical_columns:
+                if col in X_processed.columns:
+                    le = self.label_encoders[col]
+                    # Gestisci valori non visti durante il training
+                    try:
+                        X_processed[col] = le.transform(X_processed[col].astype(str))
+                    except ValueError:
+                        # Se ci sono valori non visti, usa un valore di default
+                        X_processed[col] = X_processed[col].astype(str).map(
+                            lambda x: le.transform([x])[0] if x in le.classes_ else 0
+                        )
+                        
+        return X_processed
+    
+    def fit(self, X, y, **fit_params):
+        """
+        Adatta il modello ai dati.
+        
+        Args:
+            X: Feature
+            y: Target
+            **fit_params: Parametri aggiuntivi per fit
+        """
+        # Preprocessa i dati
+        X_processed = self._preprocess_data(X, fit_encoders=True)
+        
+        # Aggiorna parametri con numero effettivo di feature
+        final_params = self.params.copy()
+        final_params['n_num_features'] = X_processed.shape[1]
+        final_params.setdefault('cat_cardinalities', [])
+        
+        # Crea e adatta il modello
+        self.model = TabM(**final_params)
+        self.model.fit(X_processed, y, **fit_params)
+        self.is_fitted = True
+        
+        return self
+    
+    def predict(self, X):
+        """
+        Predice sui dati.
+        
+        Args:
+            X: Feature per predizione
+            
+        Returns:
+            Predizioni
+        """
+        if not self.is_fitted:
+            raise ValueError("Il modello deve essere fittato prima della predizione")
+            
+        X_processed = self._preprocess_data(X, fit_encoders=False)
+        return self.model.predict(X_processed)
+    
+    def score(self, X, y, sample_weight=None):
+        """
+        Calcola lo score del modello.
+        
+        Args:
+            X: Feature
+            y: Target
+            sample_weight: Pesi dei campioni
+            
+        Returns:
+            Score del modello
+        """
+        if not self.is_fitted:
+            raise ValueError("Il modello deve essere fittato prima del calcolo dello score")
+            
+        X_processed = self._preprocess_data(X, fit_encoders=False)
+        return self.model.score(X_processed, y, sample_weight=sample_weight)
+    
+    def get_params(self, deep=True):
+        """Ottiene i parametri del modello."""
+        return self.params
+    
+    def set_params(self, **params):
+        """Imposta i parametri del modello."""
+        self.params.update(params)
+        return self
 
 def get_baseline_models(random_state: int = 42) -> Dict[str, Any]:
     """
@@ -124,7 +257,7 @@ def objective_xgboost(trial, X_train, y_train, cv_folds=5, random_state=42, n_jo
     return scores.mean()
 
 def objective_catboost(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1, cv_strategy=None, config=None):
-    """Funzione obiettivo per CatBoost"""
+    """Funzione obiettivo per CatBoost con supporto feature categoriche"""
     params = {
         'iterations': trial.suggest_int('iterations', 100, 1000, step=50),
         'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, log=True),
@@ -145,7 +278,17 @@ def objective_catboost(trial, X_train, y_train, cv_folds=5, random_state=42, n_j
     elif params['bootstrap_type'] == 'Bernoulli':
         params['subsample'] = trial.suggest_float('subsample', 0.6, 1.0)
     
-    model = cb.CatBoostRegressor(**params)
+    # Identifica feature categoriche automaticamente
+    categorical_features = []
+    if hasattr(X_train, 'dtypes'):
+        categorical_features = list(X_train.select_dtypes(include=['object', 'category']).columns)
+        if categorical_features:
+            logger.info(f"CatBoost: {len(categorical_features)} feature categoriche identificate: {categorical_features[:5]}...")
+            # Converti indices se necessario
+            if isinstance(categorical_features[0], str):
+                categorical_features = [X_train.columns.get_loc(col) for col in categorical_features]
+    
+    model = cb.CatBoostRegressor(cat_features=categorical_features, **params)
     
     # Usa cv_strategy se fornito, altrimenti KFold
     if cv_strategy is None:
@@ -158,7 +301,7 @@ def objective_catboost(trial, X_train, y_train, cv_folds=5, random_state=42, n_j
     return scores.mean()
 
 def objective_lightgbm(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1, cv_strategy=None, config=None):
-    """Funzione obiettivo per LightGBM"""
+    """Funzione obiettivo per LightGBM con supporto feature categoriche"""
     params = {
         'n_estimators': trial.suggest_int('n_estimators', 100, 1000, step=50),
         'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, log=True),
@@ -175,7 +318,16 @@ def objective_lightgbm(trial, X_train, y_train, cv_folds=5, random_state=42, n_j
         'verbose': -1
     }
     
-    model = lgb.LGBMRegressor(**params)
+    # Identifica feature categoriche per LightGBM
+    categorical_features = 'auto'  # LightGBM può rilevare automaticamente
+    if hasattr(X_train, 'dtypes'):
+        categorical_columns = list(X_train.select_dtypes(include=['object', 'category']).columns)
+        if categorical_columns:
+            logger.info(f"LightGBM: {len(categorical_columns)} feature categoriche identificate: {categorical_columns[:5]}...")
+            # Per LightGBM possiamo passare i nomi delle colonne
+            categorical_features = categorical_columns
+    
+    model = lgb.LGBMRegressor(categorical_feature=categorical_features, **params)
     
     # Usa cv_strategy se fornito, altrimenti KFold
     if cv_strategy is None:
@@ -183,9 +335,40 @@ def objective_lightgbm(trial, X_train, y_train, cv_folds=5, random_state=42, n_j
     
     # Ottieni metrica dal config
     scoring = config.get('optimization_metric', 'neg_root_mean_squared_error') if config else 'neg_root_mean_squared_error'
-    scores = cross_val_score(model, X_train, y_train, cv=cv_strategy, scoring=scoring, n_jobs=n_jobs)
     
-    return scores.mean()
+    # Per LightGBM con feature categoriche, non possiamo usare cross_val_score
+    # perché deve preparare i dati categorici. Usiamo una CV manuale.
+    if categorical_features != 'auto' and categorical_features:
+        logger.info("Usando CV manuale per LightGBM con feature categoriche")
+        scores = []
+        for train_idx, val_idx in cv_strategy.split(X_train):
+            X_train_fold = X_train.iloc[train_idx] if hasattr(X_train, 'iloc') else X_train[train_idx]
+            X_val_fold = X_train.iloc[val_idx] if hasattr(X_train, 'iloc') else X_train[val_idx]
+            y_train_fold = y_train.iloc[train_idx] if hasattr(y_train, 'iloc') else y_train[train_idx]
+            y_val_fold = y_train.iloc[val_idx] if hasattr(y_train, 'iloc') else y_train[val_idx]
+            
+            model.fit(X_train_fold, y_train_fold)
+            y_pred = model.predict(X_val_fold)
+            
+            # Calcola score manualmente in base alla metrica
+            if scoring == 'neg_root_mean_squared_error':
+                from sklearn.metrics import mean_squared_error
+                score = -np.sqrt(mean_squared_error(y_val_fold, y_pred))
+            elif scoring == 'r2':
+                from sklearn.metrics import r2_score
+                score = r2_score(y_val_fold, y_pred)
+            else:
+                # Default a RMSE
+                from sklearn.metrics import mean_squared_error
+                score = -np.sqrt(mean_squared_error(y_val_fold, y_pred))
+                
+            scores.append(score)
+        
+        return np.mean(scores)
+    else:
+        # Usa cross_val_score standard se non ci sono categoriche
+        scores = cross_val_score(model, X_train, y_train, cv=cv_strategy, scoring=scoring, n_jobs=n_jobs)
+        return scores.mean()
 
 def objective_hist_gradient_boosting(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1, cv_strategy=None, config=None):
     """Funzione obiettivo per Histogram-based Gradient Boosting"""
@@ -212,18 +395,14 @@ def objective_hist_gradient_boosting(trial, X_train, y_train, cv_folds=5, random
     return scores.mean()
 
 def objective_tabm(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1, cv_strategy=None, config=None):
-    """Funzione obiettivo per TabM"""
+    """Funzione obiettivo per TabM con gestione automatica delle categoriche"""
     
-    # Determina il numero di features numeriche
-    n_num_features = X_train.shape[1]
+    # Determina il numero di features dopo eventuale preprocessing
+    expected_n_features = X_train.shape[1]
     
-    # Per ora assumiamo che non ci siano features categoriche
-    # In futuro si potrebbe estendere per supportare features categoriche
-    cat_cardinalities = []
-    
-    # Se non ci sono features numeriche, salta TabM
-    if n_num_features == 0:
-        logger.warning("⚠️ TabM richiede almeno una feature numerica. Skipping TabM optimization.")
+    # Se non ci sono features, salta TabM
+    if expected_n_features == 0:
+        logger.warning("⚠️ TabM richiede almeno una feature. Skipping TabM optimization.")
         return float('-inf')  # Valore pessimo per indicare che il modello non può essere usato
     
     params = {
@@ -240,12 +419,13 @@ def objective_tabm(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=
         'random_state': random_state,
         'n_jobs': n_jobs,
         'verbosity': 0,
-        'n_num_features': n_num_features,
-        'cat_cardinalities': cat_cardinalities,
-        'k': trial.suggest_int('k', 1, min(10, max(1, n_num_features // 4)))  # Add required k parameter
+        'n_num_features': expected_n_features,  # Sarà aggiornato dal wrapper
+        'cat_cardinalities': [],
+        'k': trial.suggest_int('k', 1, min(10, max(1, expected_n_features // 4)))  # Add required k parameter
     }
     
-    model = TabM(**params)
+    # Usa il wrapper che gestisce automaticamente le feature categoriche
+    model = TabMWrapper(**params)
     
     # Usa cv_strategy se fornito, altrimenti KFold
     if cv_strategy is None:
@@ -253,9 +433,35 @@ def objective_tabm(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=
     
     # Ottieni metrica dal config
     scoring = config.get('optimization_metric', 'neg_root_mean_squared_error') if config else 'neg_root_mean_squared_error'
-    scores = cross_val_score(model, X_train, y_train, cv=cv_strategy, scoring=scoring, n_jobs=n_jobs)
     
-    return scores.mean()
+    # Cross validation manuale perché TabMWrapper non è direttamente compatibile con cross_val_score
+    scores = []
+    for train_idx, val_idx in cv_strategy.split(X_train):
+        X_train_fold = X_train.iloc[train_idx] if hasattr(X_train, 'iloc') else X_train[train_idx]
+        X_val_fold = X_train.iloc[val_idx] if hasattr(X_train, 'iloc') else X_train[val_idx]
+        y_train_fold = y_train.iloc[train_idx] if hasattr(y_train, 'iloc') else y_train[train_idx]
+        y_val_fold = y_train.iloc[val_idx] if hasattr(y_train, 'iloc') else y_train[val_idx]
+        
+        # Crea nuovo modello per ogni fold
+        fold_model = TabMWrapper(**params)
+        fold_model.fit(X_train_fold, y_train_fold)
+        y_pred = fold_model.predict(X_val_fold)
+        
+        # Calcola score manualmente in base alla metrica
+        if scoring == 'neg_root_mean_squared_error':
+            from sklearn.metrics import mean_squared_error
+            score = -np.sqrt(mean_squared_error(y_val_fold, y_pred))
+        elif scoring == 'r2':
+            from sklearn.metrics import r2_score
+            score = r2_score(y_val_fold, y_pred)
+        else:
+            # Default a RMSE
+            from sklearn.metrics import mean_squared_error
+            score = -np.sqrt(mean_squared_error(y_val_fold, y_pred))
+            
+        scores.append(score)
+    
+    return np.mean(scores)
 
 def create_model_from_params(model_name: str, params: Dict[str, Any]) -> Any:
     """
@@ -275,8 +481,15 @@ def create_model_from_params(model_name: str, params: Dict[str, Any]) -> Any:
     elif model_name == "XGBoost":
         return xgb.XGBRegressor(**params)
     elif model_name == "CatBoost":
+        # Se params non contiene cat_features, lo aggiungiamo vuoto
+        # Sarà configurato durante il training con i dati appropriati
+        if 'cat_features' not in params:
+            params['cat_features'] = []
         return cb.CatBoostRegressor(**params)
     elif model_name == "LightGBM":
+        # Se params non contiene categorical_feature, lo aggiungiamo come auto
+        if 'categorical_feature' not in params:
+            params['categorical_feature'] = 'auto'
         return lgb.LGBMRegressor(**params)
     elif model_name == "HistGradientBoosting":
         return HistGradientBoostingRegressor(**params)
@@ -287,7 +500,9 @@ def create_model_from_params(model_name: str, params: Dict[str, Any]) -> Any:
             # Assume che abbiamo solo features numeriche se non specificato
             params.setdefault('n_num_features', 1)  # Sarà aggiornato durante il training
             params.setdefault('cat_cardinalities', [])
-        return TabM(**params)
+        
+        # Usa il wrapper che gestisce automaticamente il preprocessing delle categoriche
+        return TabMWrapper(**params)
     else:
         raise ValueError(f"Modello non supportato: {model_name}")
 

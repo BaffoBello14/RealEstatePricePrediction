@@ -16,6 +16,35 @@ from .transformation import split_dataset_with_validation, apply_feature_scaling
 
 logger = get_logger(__name__)
 
+def identify_categorical_columns(df: pd.DataFrame, target_column: str) -> Dict[str, list]:
+    """
+    Identifica e categorizza le colonne categoriche per tipo.
+    
+    Args:
+        df: DataFrame da analizzare
+        target_column: Nome della colonna target da escludere
+        
+    Returns:
+        Dictionary con liste di colonne per tipo
+    """
+    cat_cols = df.select_dtypes(include='object').columns
+    cat_cols = [col for col in cat_cols if col != target_column]  # Escludi target se categorico
+    
+    if len(cat_cols) == 0:
+        return {'all_categorical': [], 'low_card': [], 'high_card': [], 'very_high_card': []}
+    
+    # Separazione per cardinalità (usa soglie dal config di default)
+    low_card = [col for col in cat_cols if df[col].nunique() < 10]
+    high_card = [col for col in cat_cols if 10 <= df[col].nunique() < 100]
+    very_high_card = [col for col in cat_cols if df[col].nunique() >= 100]
+    
+    return {
+        'all_categorical': cat_cols,
+        'low_card': low_card,
+        'high_card': high_card,
+        'very_high_card': very_high_card
+    }
+
 def run_preprocessing_pipeline(
     dataset_path: str,
     target_column: str,
@@ -67,6 +96,14 @@ def run_preprocessing_pipeline(
         else:
             logger.info("Step 4: Conversione automatica a numerico DISABILITATA")
             preprocessing_info['steps_info']['numeric_conversion'] = {'skipped': True}
+        
+        # ===== IDENTIFICAZIONE FEATURE CATEGORICHE PRIMA ENCODING =====
+        categorical_info = identify_categorical_columns(df, target_column)
+        preprocessing_info['categorical_columns'] = categorical_info
+        logger.info(f"Feature categoriche identificate: {len(categorical_info['all_categorical'])} totali")
+        
+        # Salva una copia del dataset pre-encoding per modelli che supportano categoriche
+        df_pre_encoding = df.copy()
         
         # ===== STEP 5: ENCODING CATEGORICHE DI BASE (se abilitato) =====
         if steps_config.get('enable_advanced_encoding', True):
@@ -125,6 +162,20 @@ def run_preprocessing_pipeline(
             year_column=config.get('year_column', 'A_AnnoStipula'),
             month_column=config.get('month_column', 'A_MeseStipula')
         )
+        
+        # ===== SPLIT ANCHE PER DATI CATEGORICI =====
+        logger.info("Step 8b: Split per dati con feature categoriche native...")
+        X_train_cat, X_val_cat, X_test_cat, _, _, _, _, _, _ = split_dataset_with_validation(
+            df_pre_encoding, 
+            target_column,
+            test_size=config.get('test_size', 0.2),
+            val_size=config.get('val_size', 0.2),
+            random_state=config.get('random_state', 42),
+            use_temporal_split=config.get('use_temporal_split', True),
+            year_column=config.get('year_column', 'A_AnnoStipula'),
+            month_column=config.get('month_column', 'A_MeseStipula')
+        )
+        logger.info(f"Split categorico completato: X_train_cat {X_train_cat.shape}, X_val_cat {X_val_cat.shape}, X_test_cat {X_test_cat.shape}")
         
         split_info = {
             'train_shape': list(X_train.shape),
@@ -303,11 +354,34 @@ def run_preprocessing_pipeline(
         y_val_orig_df = pd.DataFrame({'target_original': y_val_orig})
         y_test_orig_df = pd.DataFrame({'target_original': y_test_orig})
         
+        # Prepara anche dati categorici finali (con stesse trasformazioni tranne encoding)
+        # Applica le stesse trasformazioni ai dati categorici (scaling, outlier removal, etc.)
+        
+        # Per ora manteniamo i dati categorici dalla versione pre-encoding
+        # ma con gli stessi indici dei dati finali per consistenza
+        if X_train_final is not None:
+            X_train_cat_final = X_train_cat.loc[X_train_final.index] if hasattr(X_train_final, 'index') else X_train_cat
+        else:
+            X_train_cat_final = None
+            
+        if X_val_final is not None:
+            X_val_cat_final = X_val_cat.loc[X_val_final.index] if hasattr(X_val_final, 'index') else X_val_cat
+        else:
+            X_val_cat_final = None
+            
+        if X_test_final is not None:
+            X_test_cat_final = X_test_cat.loc[X_test_final.index] if hasattr(X_test_final, 'index') else X_test_cat
+        else:
+            X_test_cat_final = None
+
         # Salva i file usando batch saving
         dataframes_to_save = {
             'train_features': X_train_final,
             'val_features': X_val_final,
             'test_features': X_test_final,
+            'train_features_categorical': X_train_cat_final,
+            'val_features_categorical': X_val_cat_final,
+            'test_features_categorical': X_test_cat_final,
             'train_target': y_train_df,
             'val_target': y_val_df,
             'test_target': y_test_df,
