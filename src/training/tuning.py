@@ -11,8 +11,7 @@ from sklearn.model_selection import KFold, TimeSeriesSplit
 from ..utils.logger import get_logger
 from .models import (
     objective_random_forest, objective_gradient_boosting, objective_xgboost,
-    objective_catboost, objective_lightgbm, objective_hist_gradient_boosting,
-    objective_tabm
+    objective_catboost, objective_lightgbm, objective_hist_gradient_boosting
 )
 
 logger = get_logger(__name__)
@@ -50,8 +49,7 @@ def create_objective_function(model_name: str, X_train, y_train, config: Dict[st
         'XGBoost': objective_xgboost,
         'CatBoost': objective_catboost,
         'LightGBM': objective_lightgbm,
-        'HistGradientBoosting': objective_hist_gradient_boosting,
-        'TabM': objective_tabm
+        'HistGradientBoosting': objective_hist_gradient_boosting
     }
     
     base_objective = objective_functions.get(model_name)
@@ -171,8 +169,7 @@ def run_full_optimization(X_train, y_train, config: Dict[str, Any]) -> Dict[str,
         "XGBoost",
         "CatBoost",
         "LightGBM",
-        "HistGradientBoosting",
-        "TabM"
+        "HistGradientBoosting"
     ]
     
     total_start_time = datetime.now()

@@ -1,8 +1,8 @@
-# Supporto Feature Categoriche per CatBoost, LightGBM e TabM
+# Supporto Feature Categoriche per CatBoost e LightGBM
 
 ## 📋 Riepilogo delle Modifiche
 
-Questo documento descrive le modifiche implementate per permettere a **CatBoost**, **LightGBM** e **TabM** di utilizzare feature categoriche native invece del dataset completamente encoded.
+Questo documento descrive le modifiche implementate per permettere a **CatBoost** e **LightGBM** di utilizzare feature categoriche native invece del dataset completamente encoded.
 
 ## 🎯 Obiettivo
 
@@ -43,7 +43,7 @@ data/processed/
 - **Caricamento intelligente**: Nuova funzione `load_data_for_model_type()` che carica il dataset appropriato per ogni modello
 - **Training differenziato**: Modificata `run_training_pipeline()` per:
   - Usare dati encoded per modelli baseline e standard
-  - Usare dati categorici per CatBoost, LightGBM, TabM
+  - Usare dati categorici per CatBoost, LightGBM
   - Ottimizzazione separata per modelli categorici
 - **Valutazione appropriata**: Nuova funzione `evaluate_all_models_with_appropriate_data()` che usa i dati corretti per ogni modello
 
@@ -57,12 +57,7 @@ data/processed/
 - **Gestione categoriche native**: Configurazione automatica del parametro `categorical_feature`
 - **Cross-validation manuale**: Implementata CV personalizzata per gestire le feature categoriche
 
-#### TabM:
-- **Wrapper personalizzato**: Creata classe `TabMWrapper` che:
-  - Gestisce automaticamente il preprocessing delle categoriche con LabelEncoder
-  - Mantiene la compatibilità con l'API sklearn
-  - Gestisce valori non visti durante l'inferenza
-- **CV specializzata**: Cross-validation manuale ottimizzata per TabM
+
 
 ## 📊 Vantaggi del Nuovo Approccio
 
@@ -76,10 +71,7 @@ data/processed/
 - ✅ Migliore gestione della memoria con categoriche
 - ✅ Split ottimali per variabili categoriche
 
-### 🎯 **TabM**
-- ✅ Preprocessing automatico trasparente all'utente
-- ✅ Mantenimento dell'API familiare
-- ✅ Gestione robusta di valori non visti
+
 
 ## 🔄 Backward Compatibility
 
@@ -91,7 +83,7 @@ data/processed/
 
 Creato script di test `test_categorical_models.py` che:
 - Genera dataset sintetico con feature numeriche e categoriche
-- Testa tutti e tre i modelli con le nuove funzionalità
+- Testa entrambi i modelli con le nuove funzionalità
 - Confronta le prestazioni e verifica il corretto funzionamento
 
 ### Esecuzione Test:
@@ -109,21 +101,20 @@ python test_categorical_models.py
 ### Dopo (Dataset Appropriati):
 - **CatBoost**: Migliori prestazioni su categoriche ad alta cardinalità
 - **LightGBM**: Split più informativi per categoriche
-- **TabM**: Preprocessing automatico senza perdita di funzionalità
+
 
 ## 🚀 Come Usare
 
 1. **Eseguire preprocessing**: Il sistema salva automaticamente entrambe le versioni
-2. **Configurare modelli**: Abilitare CatBoost/LightGBM/TabM nel `config.yaml`
+2. **Configurare modelli**: Abilitare CatBoost/LightGBM nel `config.yaml`
 3. **Eseguire training**: La pipeline sceglie automaticamente i dati appropriati
 
 ### Esempio Configurazione:
 ```yaml
 models:
   advanced:
-    catboost: true      # Userà dataset categorico
-    lightgbm: true      # Userà dataset categorico  
-    tabm: true          # Userà dataset categorico (con preprocessing automatico)
+catboost: true     # Userà dataset categorico
+lightgbm: true     # Userà dataset categorico
     xgboost: true       # Userà dataset encoded
     random_forest: true # Userà dataset encoded
 ```
@@ -131,7 +122,7 @@ models:
 ## ⚠️ Note Importanti
 
 1. **Spazio disco**: Il sistema ora salva dataset duplicati (+~50% spazio)
-2. **Categoriche support**: Solo CatBoost, LightGBM e TabM usano categoriche native
+2. **Categoriche support**: Solo CatBoost e LightGBM usano categoriche native
 3. **Ensemble models**: Continuano a usare dataset encoded per compatibilità
 4. **Preprocessing time**: Leggero aumento per generazione dataset paralleli
 

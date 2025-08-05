@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Script di test per verificare il supporto delle feature categoriche
-nei modelli CatBoost, LightGBM e TabM.
+nei modelli CatBoost e LightGBM.
 """
 
 import pandas as pd
@@ -14,7 +14,7 @@ from pathlib import Path
 # Aggiungi src al path
 sys.path.append(str(Path(__file__).parent / "src"))
 
-from src.training.models import TabMWrapper
+
 import catboost as cb
 import lightgbm as lgb
 
@@ -107,41 +107,7 @@ def test_lightgbm_with_categorical():
     print(f"   📊 Feature categoriche utilizzate: {categorical_features}")
     return score
 
-def test_tabm_wrapper():
-    """Test TabM wrapper con feature categoriche."""
-    print("🧪 Test TabM wrapper con feature categoriche...")
-    
-    df = create_test_dataset()
-    X = df.drop('target', axis=1)
-    y = df['target']
-    
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    
-    # Identifica feature categoriche
-    categorical_features = list(X.select_dtypes(include=['object', 'category']).columns)
-    
-    # Addestra TabM con wrapper
-    model = TabMWrapper(
-        n_estimators=100,
-        learning_rate=0.1,
-        max_depth=4,
-        d_out=1,
-        random_state=42,
-        n_jobs=1,
-        verbosity=0,
-        n_num_features=X.shape[1],  # Sarà aggiornato dal wrapper
-        cat_cardinalities=[],
-        k=2,
-        start_scaling_init=1.0  # Aggiunto parametro mancante
-    )
-    
-    model.fit(X_train, y_train)
-    score = model.score(X_test, y_test)
-    
-    print(f"   ✅ TabM wrapper score: {score:.4f}")
-    print(f"   📊 Feature categoriche convertite: {categorical_features}")
-    print(f"   🔧 Label encoders creati: {list(model.label_encoders.keys())}")
-    return score
+
 
 def test_comparison():
     """Confronta le prestazioni dei modelli con feature categoriche."""
@@ -167,11 +133,7 @@ def test_comparison():
     
     print()
     
-    try:
-        scores['TabM_Wrapper'] = test_tabm_wrapper()
-    except Exception as e:
-        print(f"   ❌ TabM Wrapper fallito: {e}")
-        scores['TabM_Wrapper'] = None
+
     
     print("\n" + "="*60)
     print("📈 RISULTATI FINALI")
@@ -190,7 +152,7 @@ def test_comparison():
         print(f"\n🥇 Miglior modello: {best_model[0]} (score: {best_model[1]:.4f})")
 
 if __name__ == "__main__":
-    print("🚀 Test supporto feature categoriche per CatBoost, LightGBM e TabM")
+    print("🚀 Test supporto feature categoriche per CatBoost e LightGBM")
     print("="*70)
     
     test_comparison()

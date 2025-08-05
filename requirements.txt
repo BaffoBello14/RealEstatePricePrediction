@@ -96,7 +96,7 @@ smmap==5.0.2
 SQLAlchemy==2.0.41
 stack_data @ file:///home/conda/feedstock_root/build_artifacts/stack_data_1733569443808/work
 sympy==1.13.3
-tabm==0.0.1
+
 threadpoolctl==3.6.0
 torch==2.7.1+cpu
 tornado @ file:///D:/bld/tornado_1748003343390/work

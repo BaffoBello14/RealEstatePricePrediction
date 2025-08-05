@@ -27,7 +27,7 @@ def load_data_for_model_type(preprocessing_paths: Dict[str, str], model_name: st
         Dictionary con i dati caricati appropriati per il modello
     """
     # Modelli che supportano feature categoriche native
-    categorical_models = ['CatBoost', 'LightGBM', 'TabM']
+    categorical_models = ['CatBoost', 'LightGBM']
     
     if model_name in categorical_models:
         # Usa dataset con feature categoriche
@@ -400,7 +400,7 @@ def evaluate_all_models_with_appropriate_data(preprocessing_paths: Dict[str, str
     logger.info("=" * 60)
     
     all_results = {}
-    categorical_models = ['CatBoost', 'LightGBM', 'TabM']
+    categorical_models = ['CatBoost', 'LightGBM']
     
     # 1. Modelli baseline (usano sempre dati encoded)
     logger.info("Valutazione modelli baseline con dati encoded...")
@@ -586,7 +586,7 @@ def run_training_pipeline(preprocessing_paths: Dict[str, str], config: Dict[str,
         optimization_results_categorical = {}
         
         # Lista modelli che supportano categoriche dal config
-        categorical_models = ['CatBoost', 'LightGBM', 'TabM']
+        categorical_models = ['CatBoost', 'LightGBM']
         enabled_categorical = []
         
         for model in categorical_models:
@@ -603,7 +603,7 @@ def run_training_pipeline(preprocessing_paths: Dict[str, str], config: Dict[str,
             # Esegui ottimizzazione per ogni modello categorico
             from .tuning import optimize_model
             for model_name in enabled_categorical:
-                if model_name in ['CatBoost', 'LightGBM', 'TabM']:
+                if model_name in ['CatBoost', 'LightGBM']:
                     logger.info(f"Ottimizzazione {model_name} con feature categoriche...")
                     try:
                         result = optimize_model(model_name, data_categorical['X_train'], data_categorical['y_train'], config)

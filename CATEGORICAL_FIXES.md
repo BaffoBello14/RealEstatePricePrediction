@@ -11,13 +11,7 @@ Fields with bad pandas dtypes: cat1: object, cat2: object, cat3: object
 
 **Causa:** LightGBM richiede che le feature categoriche abbiano dtype `category` invece di `object`.
 
-### 2. TabM - Parametro Mancante
-**Errore originale:**
-```
-❌ TabM Wrapper fallito: The required argument `start_scaling_init` is missing
-```
 
-**Causa:** Il modello TabM richiede il parametro `start_scaling_init` che non era stato specificato.
 
 ## Soluzioni Implementate
 
@@ -41,37 +35,15 @@ score = model.score(X_test_processed, y_test)
 
 **Spiegazione:** LightGBM richiede che le feature categoriche abbiano dtype `category` per essere riconosciute correttamente. La conversione da `object` a `category` risolve il problema.
 
-### 2. Fix TabM
 
-**File modificato:** `test_categorical_models.py` - funzione `test_tabm_wrapper()`
-
-**Modifica applicata:**
-```python
-model = TabMWrapper(
-    n_estimators=100,
-    learning_rate=0.1,
-    max_depth=4,
-    d_out=1,
-    random_state=42,
-    n_jobs=1,
-    verbosity=0,
-    n_num_features=X.shape[1],
-    cat_cardinalities=[],
-    k=2,
-    start_scaling_init=1.0  # Aggiunto parametro mancante
-)
-```
-
-**Spiegazione:** Il parametro `start_scaling_init` è richiesto dal modello TabM per l'inizializzazione degli scaling. Il valore `1.0` è un valore di default appropriato.
 
 ## Risultati Attesi
 
-Dopo le correzioni, tutti e tre i modelli dovrebbero funzionare correttamente:
+Dopo le correzioni, entrambi i modelli dovrebbero funzionare correttamente:
 
 ```
 🏆 CatBoost: 0.9825 (già funzionante)
 ✅ LightGBM: Funzionante con feature categoriche
-✅ TabM_Wrapper: Funzionante con preprocessing automatico
 ```
 
 ## Test di Verifica
@@ -84,7 +56,7 @@ python3 test_simple.py
 
 Questo script controlla:
 - ✅ Presenza del fix LightGBM (conversione dtype)
-- ✅ Presenza del fix TabM (parametro start_scaling_init)
+
 - ✅ Presenza degli import necessari
 
 ## Note Aggiuntive

@@ -19,142 +19,13 @@ from sklearn.preprocessing import LabelEncoder
 import xgboost as xgb
 import catboost as cb
 import lightgbm as lgb
-from tabm import TabM
 from ..utils.logger import get_logger
 import pandas as pd
 import numpy as np
 
 logger = get_logger(__name__)
 
-class TabMWrapper:
-    """
-    Wrapper per TabM che gestisce automaticamente il preprocessing delle feature categoriche.
-    TabM non supporta nativamente le feature categoriche, quindi le converte automaticamente.
-    """
-    
-    def __init__(self, **params):
-        """
-        Inizializza TabM wrapper.
-        
-        Args:
-            **params: Parametri per TabM
-        """
-        self.params = params
-        self.model = None
-        self.label_encoders = {}
-        self.categorical_columns = []
-        self.is_fitted = False
-        
-    def _preprocess_data(self, X, fit_encoders=False):
-        """
-        Preprocessa i dati convertendo le feature categoriche in numeriche.
-        
-        Args:
-            X: Dataset da preprocessare
-            fit_encoders: Se True, fit degli encoder (fase di training)
-            
-        Returns:
-            Dataset preprocessato
-        """
-        if not hasattr(X, 'dtypes'):
-            return X
-            
-        X_processed = X.copy()
-        categorical_columns = list(X.select_dtypes(include=['object', 'category']).columns)
-        
-        if fit_encoders:
-            self.categorical_columns = categorical_columns
-            self.label_encoders = {}
-            
-            for col in categorical_columns:
-                le = LabelEncoder()
-                X_processed[col] = le.fit_transform(X_processed[col].astype(str))
-                self.label_encoders[col] = le
-                
-            if categorical_columns:
-                logger.info(f"TabM: Fitted label encoders per {len(categorical_columns)} feature categoriche")
-        else:
-            # Usa encoder già fittati
-            for col in self.categorical_columns:
-                if col in X_processed.columns:
-                    le = self.label_encoders[col]
-                    # Gestisci valori non visti durante il training
-                    try:
-                        X_processed[col] = le.transform(X_processed[col].astype(str))
-                    except ValueError:
-                        # Se ci sono valori non visti, usa un valore di default
-                        X_processed[col] = X_processed[col].astype(str).map(
-                            lambda x: le.transform([x])[0] if x in le.classes_ else 0
-                        )
-                        
-        return X_processed
-    
-    def fit(self, X, y, **fit_params):
-        """
-        Adatta il modello ai dati.
-        
-        Args:
-            X: Feature
-            y: Target
-            **fit_params: Parametri aggiuntivi per fit
-        """
-        # Preprocessa i dati
-        X_processed = self._preprocess_data(X, fit_encoders=True)
-        
-        # Aggiorna parametri con numero effettivo di feature
-        final_params = self.params.copy()
-        final_params['n_num_features'] = X_processed.shape[1]
-        final_params.setdefault('cat_cardinalities', [])
-        
-        # Crea e adatta il modello
-        self.model = TabM(**final_params)
-        self.model.fit(X_processed, y, **fit_params)
-        self.is_fitted = True
-        
-        return self
-    
-    def predict(self, X):
-        """
-        Predice sui dati.
-        
-        Args:
-            X: Feature per predizione
-            
-        Returns:
-            Predizioni
-        """
-        if not self.is_fitted:
-            raise ValueError("Il modello deve essere fittato prima della predizione")
-            
-        X_processed = self._preprocess_data(X, fit_encoders=False)
-        return self.model.predict(X_processed)
-    
-    def score(self, X, y, sample_weight=None):
-        """
-        Calcola lo score del modello.
-        
-        Args:
-            X: Feature
-            y: Target
-            sample_weight: Pesi dei campioni
-            
-        Returns:
-            Score del modello
-        """
-        if not self.is_fitted:
-            raise ValueError("Il modello deve essere fittato prima del calcolo dello score")
-            
-        X_processed = self._preprocess_data(X, fit_encoders=False)
-        return self.model.score(X_processed, y, sample_weight=sample_weight)
-    
-    def get_params(self, deep=True):
-        """Ottiene i parametri del modello."""
-        return self.params
-    
-    def set_params(self, **params):
-        """Imposta i parametri del modello."""
-        self.params.update(params)
-        return self
+
 
 def get_baseline_models(random_state: int = 42) -> Dict[str, Any]:
     """
@@ -394,74 +265,7 @@ def objective_hist_gradient_boosting(trial, X_train, y_train, cv_folds=5, random
     
     return scores.mean()
 
-def objective_tabm(trial, X_train, y_train, cv_folds=5, random_state=42, n_jobs=-1, cv_strategy=None, config=None):
-    """Funzione obiettivo per TabM con gestione automatica delle categoriche"""
-    
-    # Determina il numero di features dopo eventuale preprocessing
-    expected_n_features = X_train.shape[1]
-    
-    # Se non ci sono features, salta TabM
-    if expected_n_features == 0:
-        logger.warning("⚠️ TabM richiede almeno una feature. Skipping TabM optimization.")
-        return float('-inf')  # Valore pessimo per indicare che il modello non può essere usato
-    
-    params = {
-        'n_estimators': trial.suggest_int('n_estimators', 100, 1000, step=50),
-        'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, log=True),
-        'max_depth': trial.suggest_int('max_depth', 3, 10),
-        'min_child_weight': trial.suggest_int('min_child_weight', 1, 10),
-        'gamma': trial.suggest_float('gamma', 0, 0.5),
-        'subsample': trial.suggest_float('subsample', 0.6, 1.0),
-        'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
-        'reg_alpha': trial.suggest_float('reg_alpha', 0, 10),
-        'reg_lambda': trial.suggest_float('reg_lambda', 0, 10),
-        'd_out': 1,
-        'random_state': random_state,
-        'n_jobs': n_jobs,
-        'verbosity': 0,
-        'n_num_features': expected_n_features,  # Sarà aggiornato dal wrapper
-        'cat_cardinalities': [],
-        'k': trial.suggest_int('k', 1, min(10, max(1, expected_n_features // 4)))  # Add required k parameter
-    }
-    
-    # Usa il wrapper che gestisce automaticamente le feature categoriche
-    model = TabMWrapper(**params)
-    
-    # Usa cv_strategy se fornito, altrimenti KFold
-    if cv_strategy is None:
-        cv_strategy = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
-    
-    # Ottieni metrica dal config
-    scoring = config.get('optimization_metric', 'neg_root_mean_squared_error') if config else 'neg_root_mean_squared_error'
-    
-    # Cross validation manuale perché TabMWrapper non è direttamente compatibile con cross_val_score
-    scores = []
-    for train_idx, val_idx in cv_strategy.split(X_train):
-        X_train_fold = X_train.iloc[train_idx] if hasattr(X_train, 'iloc') else X_train[train_idx]
-        X_val_fold = X_train.iloc[val_idx] if hasattr(X_train, 'iloc') else X_train[val_idx]
-        y_train_fold = y_train.iloc[train_idx] if hasattr(y_train, 'iloc') else y_train[train_idx]
-        y_val_fold = y_train.iloc[val_idx] if hasattr(y_train, 'iloc') else y_train[val_idx]
-        
-        # Crea nuovo modello per ogni fold
-        fold_model = TabMWrapper(**params)
-        fold_model.fit(X_train_fold, y_train_fold)
-        y_pred = fold_model.predict(X_val_fold)
-        
-        # Calcola score manualmente in base alla metrica
-        if scoring == 'neg_root_mean_squared_error':
-            from sklearn.metrics import mean_squared_error
-            score = -np.sqrt(mean_squared_error(y_val_fold, y_pred))
-        elif scoring == 'r2':
-            from sklearn.metrics import r2_score
-            score = r2_score(y_val_fold, y_pred)
-        else:
-            # Default a RMSE
-            from sklearn.metrics import mean_squared_error
-            score = -np.sqrt(mean_squared_error(y_val_fold, y_pred))
-            
-        scores.append(score)
-    
-    return np.mean(scores)
+
 
 def create_model_from_params(model_name: str, params: Dict[str, Any]) -> Any:
     """
@@ -493,16 +297,6 @@ def create_model_from_params(model_name: str, params: Dict[str, Any]) -> Any:
         return lgb.LGBMRegressor(**params)
     elif model_name == "HistGradientBoosting":
         return HistGradientBoostingRegressor(**params)
-    elif model_name == "TabM":
-        # Assicuriamoci che i parametri necessari per TabM siano presenti
-        if 'n_num_features' not in params or 'cat_cardinalities' not in params:
-            logger.warning("⚠️ TabM richiede n_num_features e cat_cardinalities. Aggiungendo valori di default.")
-            # Assume che abbiamo solo features numeriche se non specificato
-            params.setdefault('n_num_features', 1)  # Sarà aggiornato durante il training
-            params.setdefault('cat_cardinalities', [])
-        
-        # Usa il wrapper che gestisce automaticamente il preprocessing delle categoriche
-        return TabMWrapper(**params)
     else:
         raise ValueError(f"Modello non supportato: {model_name}")
 

@@ -27,25 +27,7 @@ def test_lightgbm_fix():
         print("❌ File test_categorical_models.py non trovato")
         return False
 
-def test_tabm_fix():
-    """Test that TabM start_scaling_init fix is in place."""
-    
-    try:
-        with open('test_categorical_models.py', 'r') as f:
-            content = f.read()
-        
-        # Check if the fix is present
-        if "start_scaling_init=1.0" in content:
-            print("✅ TabM start_scaling_init fix: PRESENTE")
-            print("   🔧 Parametro start_scaling_init aggiunto")
-            return True
-        else:
-            print("❌ TabM start_scaling_init fix: MANCANTE")
-            return False
-            
-    except FileNotFoundError:
-        print("❌ File test_categorical_models.py non trovato")
-        return False
+
 
 def test_imports():
     """Test that imports are working in the test file."""
@@ -56,7 +38,6 @@ def test_imports():
         
         # Check for critical imports
         expected_imports = [
-            'from src.training.models import TabMWrapper',
             'import catboost as cb',
             'import lightgbm as lgb'
         ]
@@ -85,8 +66,7 @@ def main():
     print("\n🧪 Test fix LightGBM...")
     results.append(test_lightgbm_fix())
     
-    print("\n🧪 Test fix TabM...")
-    results.append(test_tabm_fix())
+
     
     print("\n🧪 Test imports...")
     results.append(test_imports())
@@ -99,7 +79,6 @@ def main():
         print("🏆 Tutti i fix sono stati applicati correttamente!")
         print("\n📋 Riepilogo correzioni:")
         print("   • LightGBM: Conversione automatica object -> category dtype")
-        print("   • TabM: Aggiunto parametro start_scaling_init=1.0")
         print("\n✅ Il codice è ora pronto per gestire le feature categoriche!")
     else:
         print("❌ Alcuni fix non sono stati applicati correttamente")
