@@ -83,6 +83,13 @@ def test_lightgbm_with_categorical():
     # Identifica feature categoriche
     categorical_features = list(X.select_dtypes(include=['object', 'category']).columns)
     
+    # Converti le colonne categoriche in dtype category per LightGBM
+    X_train_processed = X_train.copy()
+    X_test_processed = X_test.copy()
+    for col in categorical_features:
+        X_train_processed[col] = X_train_processed[col].astype('category')
+        X_test_processed[col] = X_test_processed[col].astype('category')
+    
     # Addestra LightGBM
     model = lgb.LGBMRegressor(
         categorical_feature=categorical_features,
@@ -93,8 +100,8 @@ def test_lightgbm_with_categorical():
         verbose=-1
     )
     
-    model.fit(X_train, y_train)
-    score = model.score(X_test, y_test)
+    model.fit(X_train_processed, y_train)
+    score = model.score(X_test_processed, y_test)
     
     print(f"   ✅ LightGBM score: {score:.4f}")
     print(f"   📊 Feature categoriche utilizzate: {categorical_features}")
@@ -124,7 +131,8 @@ def test_tabm_wrapper():
         verbosity=0,
         n_num_features=X.shape[1],  # Sarà aggiornato dal wrapper
         cat_cardinalities=[],
-        k=2
+        k=2,
+        start_scaling_init=1.0  # Aggiunto parametro mancante
     )
     
     model.fit(X_train, y_train)
