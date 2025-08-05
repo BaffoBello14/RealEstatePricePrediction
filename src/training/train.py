@@ -15,6 +15,57 @@ from .tuning import run_full_optimization
 
 logger = get_logger(__name__)
 
+def load_data_for_model_type(preprocessing_paths: Dict[str, str], model_name: str) -> Dict[str, Any]:
+    """
+    Carica il dataset appropriato per il tipo di modello.
+    
+    Args:
+        preprocessing_paths: Path ai file preprocessati
+        model_name: Nome del modello per determinare quale dataset caricare
+        
+    Returns:
+        Dictionary con i dati caricati appropriati per il modello
+    """
+    # Modelli che supportano feature categoriche native
+    categorical_models = ['CatBoost', 'LightGBM', 'TabM']
+    
+    if model_name in categorical_models:
+        # Usa dataset con feature categoriche
+        logger.info(f"Caricando dati con feature categoriche per {model_name}")
+        
+        # Verifica che i file categorici esistano
+        categorical_paths = ['train_features_categorical', 'val_features_categorical', 'test_features_categorical']
+        if all(path in preprocessing_paths for path in categorical_paths):
+            X_train = load_dataframe(preprocessing_paths['train_features_categorical'])
+            X_val = load_dataframe(preprocessing_paths['val_features_categorical'])
+            X_test = load_dataframe(preprocessing_paths['test_features_categorical'])
+            logger.info(f"Dataset categorico caricato per {model_name}: X_train {X_train.shape}")
+        else:
+            logger.warning(f"File categorici non trovati per {model_name}, uso dataset encoded")
+            X_train = load_dataframe(preprocessing_paths['train_features'])
+            X_val = load_dataframe(preprocessing_paths['val_features'])
+            X_test = load_dataframe(preprocessing_paths['test_features'])
+    else:
+        # Usa dataset encoded per tutti gli altri modelli
+        logger.debug(f"Caricando dati encoded per {model_name}")
+        X_train = load_dataframe(preprocessing_paths['train_features'])
+        X_val = load_dataframe(preprocessing_paths['val_features'])
+        X_test = load_dataframe(preprocessing_paths['test_features'])
+    
+    # Target è sempre lo stesso per tutti i modelli
+    y_train = load_dataframe(preprocessing_paths['train_target']).squeeze()
+    y_val = load_dataframe(preprocessing_paths['val_target']).squeeze()
+    y_test = load_dataframe(preprocessing_paths['test_target']).squeeze()
+    
+    return {
+        'X_train': X_train,
+        'X_val': X_val,
+        'X_test': X_test,
+        'y_train': y_train,
+        'y_val': y_val,
+        'y_test': y_test
+    }
+
 def evaluate_baseline_models(X_train, y_train, config: Dict[str, Any]) -> Dict[str, Any]:
     """
     Valuta modelli baseline con cross-validation.
@@ -285,7 +336,7 @@ def create_optimized_models(optimization_results: Dict[str, Any]) -> Dict[str, A
 def evaluate_all_models(X_train, y_train, X_val, y_val, baseline_results: Dict[str, Any], 
                        optimized_models: Dict[str, Any], ensemble_models: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Valuta tutti i modelli (baseline, ottimizzati, ensemble).
+    Valuta tutti i modelli (baseline, ottimizzati, ensemble) - versione legacy.
     
     Args:
         X_train: Features di training
@@ -300,7 +351,7 @@ def evaluate_all_models(X_train, y_train, X_val, y_val, baseline_results: Dict[s
         Dictionary con tutti i risultati
     """
     logger.info("=" * 60)
-    logger.info("TRAINING E VALUTAZIONE SU VALIDATION SET")
+    logger.info("TRAINING E VALUTAZIONE SU VALIDATION SET (legacy)")
     logger.info("=" * 60)
     
     all_results = {}
@@ -324,6 +375,89 @@ def evaluate_all_models(X_train, y_train, X_val, y_val, baseline_results: Dict[s
     logger.info("Valutazione modelli ensemble...")
     for name, model in ensemble_models.items():
         results = evaluate_single_model(model, X_train, y_train, X_val, y_val, f"Ensemble_{name}")
+        all_results[f"Ensemble_{name}"] = results
+    
+    return all_results
+
+def evaluate_all_models_with_appropriate_data(preprocessing_paths: Dict[str, str], config: Dict[str, Any],
+                                           baseline_results: Dict[str, Any], optimized_models: Dict[str, Any], 
+                                           ensemble_models: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Valuta tutti i modelli usando i dataset appropriati per ogni tipo.
+    
+    Args:
+        preprocessing_paths: Path ai file preprocessati
+        config: Configurazione del training
+        baseline_results: Risultati modelli baseline
+        optimized_models: Modelli ottimizzati
+        ensemble_models: Modelli ensemble
+        
+    Returns:
+        Dictionary con tutti i risultati
+    """
+    logger.info("=" * 60)
+    logger.info("TRAINING E VALUTAZIONE CON DATASET APPROPRIATI")
+    logger.info("=" * 60)
+    
+    all_results = {}
+    categorical_models = ['CatBoost', 'LightGBM', 'TabM']
+    
+    # 1. Modelli baseline (usano sempre dati encoded)
+    logger.info("Valutazione modelli baseline con dati encoded...")
+    data_encoded = load_data_for_model_type(preprocessing_paths, "StandardModel")
+    
+    for name, baseline_data in baseline_results.items():
+        if 'model' in baseline_data:
+            results = evaluate_single_model(
+                baseline_data['model'], 
+                data_encoded['X_train'], data_encoded['y_train'], 
+                data_encoded['X_val'], data_encoded['y_val'], 
+                f"Baseline_{name}"
+            )
+            all_results[f"Baseline_{name}"] = results
+    
+    # 2. Modelli ottimizzati (usa dataset appropriato per ogni modello)
+    logger.info("Valutazione modelli ottimizzati...")
+    data_categorical = None  # Carica solo se necessario
+    
+    for name, model in optimized_models.items():
+        # Determina se il modello supporta categoriche
+        model_supports_categorical = any(cat_model in name for cat_model in categorical_models)
+        
+        if model_supports_categorical:
+            # Carica dati categorici se non già fatto
+            if data_categorical is None:
+                logger.info("Caricamento dati categorici per modelli che li supportano...")
+                data_categorical = load_data_for_model_type(preprocessing_paths, "CatBoost")
+            
+            results = evaluate_single_model(
+                model, 
+                data_categorical['X_train'], data_categorical['y_train'], 
+                data_categorical['X_val'], data_categorical['y_val'], 
+                f"Optimized_{name}"
+            )
+            logger.info(f"✓ {name} valutato con feature categoriche")
+        else:
+            # Usa dati encoded
+            results = evaluate_single_model(
+                model, 
+                data_encoded['X_train'], data_encoded['y_train'], 
+                data_encoded['X_val'], data_encoded['y_val'], 
+                f"Optimized_{name}"
+            )
+            logger.debug(f"✓ {name} valutato con feature encoded")
+        
+        all_results[f"Optimized_{name}"] = results
+    
+    # 3. Modelli ensemble (usano sempre dati encoded perché combinano modelli diversi)
+    logger.info("Valutazione modelli ensemble con dati encoded...")
+    for name, model in ensemble_models.items():
+        results = evaluate_single_model(
+            model, 
+            data_encoded['X_train'], data_encoded['y_train'], 
+            data_encoded['X_val'], data_encoded['y_val'], 
+            f"Ensemble_{name}"
+        )
         all_results[f"Ensemble_{name}"] = results
     
     return all_results
@@ -423,7 +557,7 @@ def select_best_models(validation_results: Dict[str, Any], config: Dict[str, Any
 
 def run_training_pipeline(preprocessing_paths: Dict[str, str], config: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Esegue la pipeline completa di training.
+    Esegue la pipeline completa di training con supporto per dataset categorici.
     
     Args:
         preprocessing_paths: Path ai file preprocessati
@@ -432,39 +566,68 @@ def run_training_pipeline(preprocessing_paths: Dict[str, str], config: Dict[str,
     Returns:
         Dictionary con tutti i risultati del training
     """
-    logger.info("=== AVVIO PIPELINE TRAINING ===")
+    logger.info("=== AVVIO PIPELINE TRAINING CON SUPPORTO CATEGORICHE ===")
     
     try:
-        # 1. Caricamento dati
-        logger.info("Caricamento dati preprocessati...")
-        X_train = load_dataframe(preprocessing_paths['train_features'])
-        X_val = load_dataframe(preprocessing_paths['val_features'])
-        X_test = load_dataframe(preprocessing_paths['test_features'])
-        y_train = load_dataframe(preprocessing_paths['train_target']).squeeze()
-        y_val = load_dataframe(preprocessing_paths['val_target']).squeeze()
-        y_test = load_dataframe(preprocessing_paths['test_target']).squeeze()
+        # 1. Caricamento dati encoded (per modelli baseline e non-categorici)
+        logger.info("Caricamento dati encoded per modelli standard...")
+        data_encoded = load_data_for_model_type(preprocessing_paths, "StandardModel")
+        logger.info(f"Dati encoded - Train: {data_encoded['X_train'].shape}, Val: {data_encoded['X_val'].shape}")
         
-        logger.info(f"Train: {X_train.shape}, Val: {X_val.shape}, Test: {X_test.shape}")
+        # 2. Valutazione modelli baseline (usano sempre dati encoded)
+        baseline_results = evaluate_baseline_models(data_encoded['X_train'], data_encoded['y_train'], config)
         
-        # 2. Valutazione modelli baseline
-        baseline_results = evaluate_baseline_models(X_train, y_train, config)
+        # 3. Ottimizzazione iperparametri per modelli standard
+        logger.info("Ottimizzazione modelli standard con dati encoded...")
+        optimization_results_standard = run_full_optimization(data_encoded['X_train'], data_encoded['y_train'], config)
         
-        # 3. Ottimizzazione iperparametri
-        optimization_results = run_full_optimization(X_train, y_train, config)
+        # 4. Ottimizzazione per modelli che supportano categoriche
+        logger.info("Ottimizzazione modelli categorici...")
+        optimization_results_categorical = {}
         
-        # 4. Creazione modelli ottimizzati
+        # Lista modelli che supportano categoriche dal config
+        categorical_models = ['CatBoost', 'LightGBM', 'TabM']
+        enabled_categorical = []
+        
+        for model in categorical_models:
+            model_key = model.lower().replace('boost', 'boost').replace('gbm', 'gbm')
+            if config.get('models', {}).get('advanced', {}).get(model_key, False):
+                enabled_categorical.append(model)
+        
+        if enabled_categorical:
+            logger.info(f"Ottimizzazione modelli categorici abilitati: {enabled_categorical}")
+            
+            # Carica dati categorici
+            data_categorical = load_data_for_model_type(preprocessing_paths, "CatBoost")  # Usa CatBoost come rappresentante
+            
+            # Esegui ottimizzazione per ogni modello categorico
+            from .tuning import optimize_model
+            for model_name in enabled_categorical:
+                if model_name in ['CatBoost', 'LightGBM', 'TabM']:
+                    logger.info(f"Ottimizzazione {model_name} con feature categoriche...")
+                    try:
+                        result = optimize_model(model_name, data_categorical['X_train'], data_categorical['y_train'], config)
+                        optimization_results_categorical[model_name] = result
+                        logger.info(f"✓ {model_name} ottimizzato con score: {result.get('best_score', 'N/A')}")
+                    except Exception as e:
+                        logger.error(f"✗ Errore ottimizzazione {model_name}: {str(e)}")
+        
+        # 5. Combina risultati ottimizzazione
+        optimization_results = {**optimization_results_standard, **optimization_results_categorical}
+        
+        # 6. Creazione modelli ottimizzati
         optimized_models = create_optimized_models(optimization_results)
         
-        # 5. Creazione modelli ensemble
+        # 7. Creazione modelli ensemble
         ensemble_models = create_ensemble_models(
             optimized_models, 
             config.get('random_state', 42),
             config.get('n_jobs', -1)
         )
         
-        # 6. Valutazione completa
-        validation_results = evaluate_all_models(
-            X_train, y_train, X_val, y_val,
+        # 8. Valutazione completa - usa dati appropriati per ogni modello
+        validation_results = evaluate_all_models_with_appropriate_data(
+            preprocessing_paths, config,
             baseline_results, optimized_models, ensemble_models
         )
         
@@ -481,9 +644,9 @@ def run_training_pipeline(preprocessing_paths: Dict[str, str], config: Dict[str,
             'df_validation_results': df_validation_results,
             'best_models': best_models,
             'data_shapes': {
-                'train': X_train.shape,
-                'val': X_val.shape,
-                'test': X_test.shape
+                'train': data_encoded['X_train'].shape,
+                'val': data_encoded['X_val'].shape,
+                'test': data_encoded['X_test'].shape
             }
         }
         
